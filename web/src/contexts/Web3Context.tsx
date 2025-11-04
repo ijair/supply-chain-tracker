@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { ethers } from 'ethers';
 import { toast } from 'sonner';
 import { contractConfig } from '@/contracts/config';
+import networkConfig from '@/contracts/network-config.json';
 
 // Types
 interface User {
@@ -75,6 +76,59 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(STORAGE_KEYS.CONNECTION_STATUS);
 
     toast.info('Wallet disconnected');
+  }, []);
+
+  // Add or switch to Anvil network (defined early to avoid forward reference)
+  const ensureAnvilNetwork = useCallback(async () => {
+    if (!window.ethereum) return false;
+
+    try {
+      const targetChainId = parseInt(networkConfig.chainId, 16); // 0x7A69 = 31337
+      
+      // Check current chain
+      const currentChainId = await window.ethereum.request({
+        method: 'eth_chainId',
+      });
+      
+      if (parseInt(currentChainId, 16) === targetChainId) {
+        return true; // Already on correct network
+      }
+
+      // Try to switch network
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: networkConfig.chainId }],
+        });
+        return true;
+      } catch (switchError: any) {
+        // Network doesn't exist, add it
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: networkConfig.chainId,
+                chainName: networkConfig.chainName,
+                nativeCurrency: networkConfig.nativeCurrency,
+                rpcUrls: networkConfig.rpcUrls,
+                blockExplorerUrls: networkConfig.blockExplorerUrls || [],
+              },
+            ],
+          });
+          return true;
+        }
+        throw switchError;
+      }
+    } catch (error: any) {
+      console.error('Error ensuring Anvil network:', error);
+      if (error.code === 4001) {
+        toast.error('Please approve the network switch in MetaMask');
+      } else {
+        toast.error('Failed to switch to Anvil network. Please add it manually in MetaMask.');
+      }
+      return false;
+    }
   }, []);
 
   // Load persisted connection state
@@ -163,12 +217,22 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    const handleChainChanged = (chainIdHex: string) => {
+    const handleChainChanged = async (chainIdHex: string) => {
       const newChainId = parseInt(chainIdHex, 16);
+      const targetChainId = contractConfig.network.chainId;
+      
       setChainId(newChainId);
       localStorage.setItem(STORAGE_KEYS.CHAIN_ID, newChainId.toString());
-      toast.info('Network changed. Reloading page...');
-      window.location.reload();
+      
+      if (newChainId !== targetChainId) {
+        toast.warning('Wrong network detected. Switching to Anvil Local...');
+        // Try to switch back to Anvil
+        await ensureAnvilNetwork();
+        window.location.reload();
+      } else {
+        toast.info('Network changed. Reloading page...');
+        window.location.reload();
+      }
     };
 
     window.ethereum.on('accountsChanged', handleAccountsChanged);
@@ -178,7 +242,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
       window.ethereum?.removeListener('chainChanged', handleChainChanged);
     };
-  }, [account, disconnectWallet]);
+  }, [account, disconnectWallet, ensureAnvilNetwork]);
 
   // Check MetaMask availability
   const checkMetaMask = useCallback(() => {
@@ -207,6 +271,21 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         const account = accounts[0].address;
         const network = await provider.getNetwork();
         const signer = await provider.getSigner();
+
+        // Check if we're on the correct network
+        const currentChainId = Number(network.chainId);
+        const targetChainId = contractConfig.network.chainId;
+        if (currentChainId !== targetChainId) {
+          // Try to switch to Anvil network
+          const switched = await ensureAnvilNetwork();
+          if (!switched) {
+            toast.warning('Please switch to Anvil Local network (Chain ID: 31337)');
+            return;
+          }
+          // Reload to get the new network
+          window.location.reload();
+          return;
+        }
 
         setAccount(account);
         setChainId(Number(network.chainId));
@@ -248,13 +327,19 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       console.error('Error checking connection:', error);
       setIsConnected(false);
     }
-  }, [checkMetaMask]);
+  }, [checkMetaMask, ensureAnvilNetwork]);
 
   // Connect wallet
   const connectWallet = useCallback(async () => {
     if (!checkMetaMask()) return;
 
     try {
+      // Ensure we're on the Anvil network first
+      const networkReady = await ensureAnvilNetwork();
+      if (!networkReady) {
+        return;
+      }
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       
       // Request account access
@@ -264,6 +349,12 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         const account = accounts[0];
         const network = await provider.getNetwork();
         const signer = await provider.getSigner();
+
+        // Verify we're on the correct network
+        if (Number(network.chainId) !== contractConfig.network.chainId) {
+          toast.warning('Please switch to Anvil Local network in MetaMask');
+          return;
+        }
 
         setAccount(account);
         setChainId(Number(network.chainId));
@@ -312,7 +403,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         toast.error('Failed to connect wallet. Please try again.');
       }
     }
-  }, [checkMetaMask]);
+  }, [checkMetaMask, ensureAnvilNetwork]);
 
 
   // Refresh user data from contract

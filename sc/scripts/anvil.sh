@@ -54,41 +54,15 @@ start_anvil() {
         return 0
     fi
     
-    # Custom mnemonic to generate unique addresses (not in blacklists)
-    # This generates fresh addresses that won't trigger security warnings
-    # Use a unique mnemonic file to persist the same addresses across restarts
-    # Store mnemonic in the same directory as the script or in sc/ directory
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    SC_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-    MNEMONIC_FILE="${MNEMONIC_FILE:-$SC_DIR/.anvil_mnemonic}"
-    
-    # Generate or load mnemonic
-    if [ -f "$MNEMONIC_FILE" ]; then
-        ANVIL_MNEMONIC=$(cat "$MNEMONIC_FILE")
-        print_status "Using existing mnemonic from $MNEMONIC_FILE"
+    # Use standard test mnemonic for local development
+    # This is the default Anvil mnemonic - predictable and well-documented
+    # If you need a custom mnemonic, set ANVIL_MNEMONIC environment variable
+    if [ -n "$ANVIL_MNEMONIC" ]; then
+        print_status "Using custom mnemonic from ANVIL_MNEMONIC environment variable"
     else
-        # Generate a unique random mnemonic if one is provided via env var, use it
-        # Otherwise generate a random one using cast (if available) or use a project-specific one
-        if [ -n "$ANVIL_MNEMONIC" ]; then
-            print_status "Using mnemonic from ANVIL_MNEMONIC environment variable"
-        elif command -v cast &> /dev/null; then
-            # Generate a random mnemonic using cast
-            print_status "Generating random mnemonic..."
-            ANVIL_MNEMONIC=$(cast mnemonic 2>/dev/null || echo "")
-            if [ -z "$ANVIL_MNEMONIC" ]; then
-                # Fallback if cast mnemonic doesn't work
-                ANVIL_MNEMONIC="supply chain tracker development mnemonic $(date +%s) unique local testing"
-            fi
-        else
-            # Fallback: use a project-specific mnemonic with timestamp for uniqueness
-            TIMESTAMP=$(date +%s)
-            ANVIL_MNEMONIC="supply chain tracker development mnemonic $TIMESTAMP unique local testing addresses"
-        fi
-        
-        # Save it for consistency across restarts
-        echo "$ANVIL_MNEMONIC" > "$MNEMONIC_FILE"
-        print_status "Generated new unique mnemonic and saved to $MNEMONIC_FILE"
-        print_warning "Using a unique mnemonic to avoid blacklisted addresses"
+        # Standard test mnemonic used by Anvil and most Ethereum dev tools
+        ANVIL_MNEMONIC="test test test test test test test test test test test junk"
+        print_status "Using standard test mnemonic (default for local development)"
     fi
     
     print_status "Starting Anvil on $ANVIL_HOST:$ANVIL_PORT (Chain ID: $ANVIL_CHAIN_ID)..."
@@ -250,19 +224,8 @@ case "${1:-}" in
         logs_anvil
         ;;
     reset-mnemonic)
-        if is_anvil_running; then
-            print_error "Cannot reset mnemonic while Anvil is running. Stop Anvil first."
-            exit 1
-        fi
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        SC_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-        MNEMONIC_FILE="${MNEMONIC_FILE:-$SC_DIR/.anvil_mnemonic}"
-        if [ -f "$MNEMONIC_FILE" ]; then
-            rm -f "$MNEMONIC_FILE"
-            print_status "Mnemonic file deleted. New unique addresses will be generated on next start."
-        else
-            print_warning "No mnemonic file found. Addresses will be generated on next start."
-        fi
+        print_warning "This command is deprecated. Anvil uses the standard test mnemonic by default."
+        print_status "If you need a custom mnemonic, set ANVIL_MNEMONIC environment variable."
         ;;
     *)
         echo "Usage: $0 {start|stop|restart|status|logs|reset-mnemonic}"
@@ -273,7 +236,7 @@ case "${1:-}" in
         echo "  restart         - Restart Anvil local blockchain"
         echo "  status          - Show Anvil status"
         echo "  logs            - Show Anvil logs (follow mode)"
-        echo "  reset-mnemonic  - Delete mnemonic file to generate new addresses"
+        echo "  reset-mnemonic  - (Deprecated) Info about mnemonic usage"
         echo ""
         echo "Environment variables:"
         echo "  ANVIL_HOST           - Anvil host (default: 127.0.0.1)"
@@ -283,9 +246,9 @@ case "${1:-}" in
         echo "  FORK_URL             - Fork URL (optional)"
         echo "  FORK_BLOCK_NUMBER    - Fork block number (optional)"
         echo ""
-        echo "Note: This script uses a unique mnemonic to generate addresses that"
-        echo "      are not in security blacklists. If you see 'malicious address'"
-        echo "      warnings, run 'reset-mnemonic' and restart Anvil."
+        echo "Note: This script uses the standard test mnemonic by default, which"
+        echo "      generates predictable addresses perfect for local development."
+        echo "      To use a custom mnemonic, set the ANVIL_MNEMONIC environment variable."
         exit 1
         ;;
 esac

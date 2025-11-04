@@ -73,41 +73,53 @@ export default function Dashboard() {
               Welcome to your Supply Chain Tracker dashboard
             </p>
           </div>
-          <Button onClick={disconnectWallet} variant="outline">
-            Disconnect
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link href="/profile">Profile</Link>
+            </Button>
+            <Button onClick={disconnectWallet} variant="outline">
+              Disconnect
+            </Button>
+          </div>
         </div>
 
         {/* User Info Card */}
-        <Card className="mb-8">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Your Profile</CardTitle>
-              <Badge className={getRoleColor(user.role)}>
-                {user.role}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-1">
-                  User ID
+        <Card className="mb-8 cursor-pointer hover:shadow-lg transition-shadow">
+          <Link href="/profile">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Your Profile</CardTitle>
+                <Badge className={getRoleColor(user.role)}>
+                  {user.role}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">
+                    User ID
+                  </div>
+                  <div className="text-lg font-semibold">
+                    #{user.id}
+                  </div>
                 </div>
-                <div className="text-lg font-semibold">
-                  #{user.id}
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">
+                    Wallet Address
+                  </div>
+                  <div className="text-lg font-mono">
+                    {formatAddress(user.userAddress)}
+                  </div>
                 </div>
               </div>
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-1">
-                  Wallet Address
-                </div>
-                <div className="text-lg font-mono">
-                  {formatAddress(user.userAddress)}
-                </div>
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm text-muted-foreground">
+                  Click to view full profile details →
+                </p>
               </div>
-            </div>
-          </CardContent>
+            </CardContent>
+          </Link>
         </Card>
 
         {/* Quick Actions */}
@@ -126,6 +138,19 @@ export default function Dashboard() {
               </Link>
             </Card>
           )}
+          
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+            <Link href="/profile">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  👤 Profile
+                </CardTitle>
+                <CardDescription>
+                  View and manage your account details
+                </CardDescription>
+              </CardHeader>
+            </Link>
+          </Card>
           
           <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <Link href="/token">
