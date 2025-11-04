@@ -1,61 +1,67 @@
+// Landing page, Login page, Register page for Supply Chain Tracker
 "use client";
 
-import { useEffect, useState } from "react";
+import { useWeb3, UserStatus } from "@/contexts/Web3Context";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { FormDialog } from "@/components/UserRegistrationForm";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function Home() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [account, setAccount] = useState<string | null>(null);
-  const [chainId, setChainId] = useState<number | null>(null);
+  const { 
+    isConnected, 
+    account, 
+    chainId, 
+    user, 
+    isRegistered, 
+    isApproved, 
+    connectWallet,
+    disconnectWallet 
+  } = useWeb3();
+  
+  const router = useRouter();
 
   useEffect(() => {
-    // Check if MetaMask is installed
-    if (typeof window.ethereum !== "undefined") {
-      checkConnection();
+    // Redirect to dashboard if user is approved
+    if (isApproved) {
+      router.push('/dashboard');
     }
-  }, []);
-
-  const checkConnection = async () => {
-    try {
-      const provider = window.ethereum;
-      const accounts = await provider.request({ method: "eth_accounts" });
-      
-      if (accounts.length > 0) {
-        setAccount(accounts[0]);
-        setIsConnected(true);
-        
-        const chainIdHex = await provider.request({ method: "eth_chainId" });
-        setChainId(parseInt(chainIdHex as string, 16));
-      }
-    } catch (error) {
-      console.error("Error checking connection:", error);
-    }
-  };
-
-  const connectWallet = async () => {
-    try {
-      if (typeof window.ethereum === "undefined") {
-        alert("Please install MetaMask!");
-        return;
-      }
-
-      const provider = window.ethereum;
-      const accounts = await provider.request({ 
-        method: "eth_requestAccounts" 
-      });
-      
-      setAccount(accounts[0]);
-      setIsConnected(true);
-      
-      const chainIdHex = await provider.request({ method: "eth_chainId" });
-      setChainId(parseInt(chainIdHex as string, 16));
-    } catch (error) {
-      console.error("Error connecting wallet:", error);
-      alert("Failed to connect wallet");
-    }
-  };
+  }, [isApproved, router]);
 
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const getStatusColor = (status: number) => {
+    switch (status) {
+      case UserStatus.Approved:
+        return "bg-green-500";
+      case UserStatus.Pending:
+        return "bg-yellow-500";
+      case UserStatus.Rejected:
+        return "bg-red-500";
+      case UserStatus.Canceled:
+        return "bg-gray-500";
+      default:
+        return "bg-gray-500";
+    }
+  };
+
+  const getStatusText = (status: number) => {
+    switch (status) {
+      case UserStatus.Approved:
+        return "Approved";
+      case UserStatus.Pending:
+        return "Pending";
+      case UserStatus.Rejected:
+        return "Rejected";
+      case UserStatus.Canceled:
+        return "Canceled";
+      default:
+        return "Unknown";
+    }
   };
 
   return (
@@ -73,132 +79,126 @@ export default function Home() {
           </div>
 
           {/* Connection Status Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                Wallet Connection
-              </h2>
-              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                isConnected 
-                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" 
-                  : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-              }`}>
-                {isConnected ? "Connected" : "Disconnected"}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Wallet Connection</CardTitle>
+                <Badge variant={isConnected ? "default" : "secondary"}>
+                  {isConnected ? "Connected" : "Disconnected"}
+                </Badge>
               </div>
-            </div>
-
-            {!isConnected ? (
-              <div className="space-y-4">
-                <p className="text-gray-600 dark:text-gray-400">
-                  Connect your MetaMask wallet to interact with the Supply Chain Tracker
-                </p>
-                <button
-                  onClick={connectWallet}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
-                >
-                  Connect MetaMask
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      Account
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!isConnected ? (
+                <>
+                  <p className="text-muted-foreground">
+                    Connect your MetaMask wallet to interact with the Supply Chain Tracker
+                  </p>
+                  <Button onClick={connectWallet} className="w-full">
+                    Connect MetaMask
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="text-sm font-medium text-muted-foreground mb-1">
+                        Account
+                      </div>
+                      <div className="text-lg font-mono">
+                        {account ? formatAddress(account) : "Not connected"}
+                      </div>
                     </div>
-                    <div className="text-lg font-mono text-gray-900 dark:text-white">
-                      {account ? formatAddress(account) : "Not connected"}
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="text-sm font-medium text-muted-foreground mb-1">
+                        Chain ID
+                      </div>
+                      <div className="text-lg font-mono">
+                        {chainId !== null ? chainId : "N/A"}
+                      </div>
                     </div>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      Chain ID
+                  {!isRegistered && (
+                    <FormDialog />
+                  )}
+                  {isRegistered && user && (
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-medium text-muted-foreground">
+                          Status
+                        </div>
+                        <Badge className={getStatusColor(user.status)}>
+                          {getStatusText(user.status)}
+                        </Badge>
+                      </div>
+                      {user.status === UserStatus.Pending && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Your registration is pending approval. Please wait for admin approval.
+                        </p>
+                      )}
+                      {user.status === UserStatus.Rejected && (
+                        <p className="text-sm text-destructive mt-2">
+                          Your registration was rejected. Please contact support.
+                        </p>
+                      )}
                     </div>
-                    <div className="text-lg font-mono text-gray-900 dark:text-white">
-                      {chainId !== null ? chainId : "N/A"}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={connectWallet}
-                  className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
-                >
-                  Change Wallet
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Info Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 space-y-4">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Getting Started
-            </h3>
-            <div className="space-y-3 text-gray-600 dark:text-gray-400">
-              <p>
-                To use this dApp with your local Anvil node:
-              </p>
-              <ol className="list-decimal list-inside space-y-2 ml-2">
-                <li>Start your Anvil local blockchain: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">cd sc && anvil</code></li>
-                <li>Deploy the smart contract: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast</code></li>
-                <li>Add Anvil network to MetaMask (Chain ID: 31337, RPC: http://localhost:8545)</li>
-                <li>Connect your wallet and start tracking supplies!</li>
-              </ol>
-            </div>
-          </div>
+                  )}
+                  <Button onClick={disconnectWallet} variant="outline" className="w-full">
+                    Disconnect
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Features Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 space-y-4">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Features
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4">
-                <div className="text-2xl mb-2">📦</div>
-                <div className="font-semibold text-gray-900 dark:text-white mb-1">
-                  Register Supplies
+          <Card>
+            <CardHeader>
+              <CardTitle>Features</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                  <div className="text-2xl mb-2">📦</div>
+                  <div className="font-semibold mb-1">
+                    Register Supplies
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Create new supply items with name and location
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Create new supply items with name and location
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div className="text-2xl mb-2">📍</div>
+                  <div className="font-semibold mb-1">
+                    Track Location
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Update supply locations in real-time
+                  </div>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <div className="text-2xl mb-2">👥</div>
+                  <div className="font-semibold mb-1">
+                    User Roles
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Producer, Factory, Retailer, Consumer management
+                  </div>
+                </div>
+                <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <div className="text-2xl mb-2">✅</div>
+                  <div className="font-semibold mb-1">
+                    On-Chain Records
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Immutable blockchain storage
+                  </div>
                 </div>
               </div>
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                <div className="text-2xl mb-2">📍</div>
-                <div className="font-semibold text-gray-900 dark:text-white mb-1">
-                  Track Location
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Update supply locations in real-time
-                </div>
-              </div>
-              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
-                <div className="text-2xl mb-2">🔍</div>
-                <div className="font-semibold text-gray-900 dark:text-white mb-1">
-                  View History
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Access complete supply chain history
-                </div>
-              </div>
-              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
-                <div className="text-2xl mb-2">✅</div>
-                <div className="font-semibold text-gray-900 dark:text-white mb-1">
-                  On-Chain Records
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Immutable blockchain storage
-                </div>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>
   );
-}
-
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
 }

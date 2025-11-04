@@ -71,4 +71,17 @@ user status are { Pending, Approved, Rejected, Canceled }
 * create new functionality 
 ## 3.2.2 Script shell for sc deployments
 * create shell using env, to start or stop anvil, deploy contract to anvil with network on env file, the script must include deployment information and sync information with the frontend to be use for request on the web/src/contracts directory to be use for frontend calls
+* use fork information for anvil https://eth-mainnet.g.alchemy.com/v2/fke6Zvkyv0BXboRGLnsvJ
 
+
+# 4. Backend Product Token Functionality
+Lets continue with the token creation, the contract Supply will be using an ERC20 token standard from openzepelling. 
+the functionality is: when a producer create supply a token is created and can be send to the next on the chain in this case it will be factory, the Factory will get a pending request to receive the product token sent by the producer, after the factory confirmation receiving the tokens from the producer, a transfer will be registered too on the contract, saving transaction information.
+
+## 4.1 Token ERC20
+* implement token erc20 called ProductToken, right now is called SupplyItem so replace it and use the struct for the product token on the SupplyChainTracker.sol
+* token struct will use a meta data json string attribute for the product features
+* when a product is created based on other products the created Product token must contain the parentId
+* if a product is created using another product the original product balance must be updated to keep an inventory for materials.
+* ids for tokens must be sequential, so we need to calculate next Ids 
+* add necessary mappings on the contract for transactions to keep track on products.

@@ -1,0 +1,11 @@
+{
+  "chainId": "0x7A69",
+  "chainName": "Anvil Local",
+  "rpcUrls": ["http://127.0.0.1:8545"],
+  "nativeCurrency": {
+    "name": "Ethereum",
+    "symbol": "ETH",
+    "decimals": 18
+  },
+  "blockExplorerUrls": []
+}

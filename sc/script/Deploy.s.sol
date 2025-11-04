@@ -17,6 +17,10 @@ contract Deploy is Script {
         // Deploy the SupplyChainTracker contract
         SupplyChainTracker tracker = new SupplyChainTracker();
         
+        // Register the deployer (user0 from Anvil) as admin
+        // User0 is the first test account provided by Anvil
+        tracker.registerAdmin(msg.sender);
+        
         vm.stopBroadcast();
         
         return tracker;
