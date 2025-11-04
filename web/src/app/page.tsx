@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { FormDialog } from "@/components/UserRegistrationForm";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { getStatusColor, getStatusText, formatAddress } from "@/lib/utils";
 
 export default function Home() {
   const { 
@@ -30,39 +31,7 @@ export default function Home() {
     }
   }, [isApproved, router]);
 
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
 
-  const getStatusColor = (status: number) => {
-    switch (status) {
-      case UserStatus.Approved:
-        return "bg-green-500";
-      case UserStatus.Pending:
-        return "bg-yellow-500";
-      case UserStatus.Rejected:
-        return "bg-red-500";
-      case UserStatus.Canceled:
-        return "bg-gray-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
-
-  const getStatusText = (status: number) => {
-    switch (status) {
-      case UserStatus.Approved:
-        return "Approved";
-      case UserStatus.Pending:
-        return "Pending";
-      case UserStatus.Rejected:
-        return "Rejected";
-      case UserStatus.Canceled:
-        return "Canceled";
-      default:
-        return "Unknown";
-    }
-  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">

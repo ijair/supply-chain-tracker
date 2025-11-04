@@ -500,10 +500,28 @@ contract SupplyChainTracker {
     /**
      * @dev Get all pending transfers for an address
      * @param _address Address to get pending transfers for
-     * @return Array of transfer IDs
+     * @return Array of transfer IDs that are still pending
      */
     function getPendingTransfers(address _address) public view returns (uint256[] memory) {
-        return pendingTransfersByAddress[_address];
+        uint256[] memory allTransfers = pendingTransfersByAddress[_address];
+        uint256[] memory temp = new uint256[](allTransfers.length);
+        uint256 count = 0;
+        
+        // Filter to only pending transfers
+        for (uint256 i = 0; i < allTransfers.length; i++) {
+            if (transfers[allTransfers[i]].status == TransferStatus.Pending) {
+                temp[count] = allTransfers[i];
+                count++;
+            }
+        }
+        
+        // Create result array with exact size
+        uint256[] memory result = new uint256[](count);
+        for (uint256 i = 0; i < count; i++) {
+            result[i] = temp[i];
+        }
+        
+        return result;
     }
     
     /**

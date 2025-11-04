@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
+import { formatAddress } from "@/lib/utils";
 
 export default function Dashboard() {
   const { 
@@ -14,8 +15,7 @@ export default function Dashboard() {
     account, 
     user, 
     isApproved, 
-    disconnectWallet,
-    connectWallet 
+    disconnectWallet
   } = useWeb3();
   
   const router = useRouter();
@@ -50,9 +50,7 @@ export default function Dashboard() {
     }
   };
 
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
+
 
   if (!isConnected || !isApproved || !user) {
     return null;

@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ethers } from "ethers";
 import { contractConfig } from "@/contracts/config";
 import { toast } from "sonner";
 import Link from "next/link";
+import { getStatusColor, getStatusText } from "@/lib/utils";
 
 interface User {
   id: number;
@@ -35,22 +36,7 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Redirect if not connected or not admin
-    if (!isConnected) {
-      router.push('/');
-      return;
-    }
-    
-    if (!isApproved || user?.role !== "Admin") {
-      router.push('/dashboard');
-      return;
-    }
-
-    loadUsers();
-  }, [isConnected, isApproved, user]);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     if (!provider) return;
 
     setLoading(true);
@@ -71,7 +57,9 @@ export default function AdminUsers() {
           const address = await contract.userAddresses(i);
           addresses.push(address);
         } catch (error) {
-          console.error(`Error fetching user address at index ${i}:`, error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error(`Error fetching user address at index ${i}:`, error);
+          }
         }
       }
       
@@ -86,7 +74,9 @@ export default function AdminUsers() {
             status: Number(userData.status) as UserStatus
           };
         } catch (error) {
-          console.error(`Error fetching user ${address}:`, error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error(`Error fetching user ${address}:`, error);
+          }
           return null;
         }
       });
@@ -94,12 +84,29 @@ export default function AdminUsers() {
       const usersData = await Promise.all(userPromises);
       setUsers(usersData.filter((u): u is User => u !== null));
     } catch (error) {
-      console.error("Error loading users:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error loading users:", error);
+      }
       toast.error("Failed to load users");
     } finally {
       setLoading(false);
     }
-  };
+  }, [provider]);
+
+  useEffect(() => {
+    // Redirect if not connected or not admin
+    if (!isConnected) {
+      router.push('/');
+      return;
+    }
+    
+    if (!isApproved || user?.role !== "Admin") {
+      router.push('/dashboard');
+      return;
+    }
+
+    loadUsers();
+  }, [isConnected, isApproved, user, loadUsers, router]);
 
   const updateUserStatus = async (userAddress: string, newStatus: UserStatus) => {
     if (!signer) {
@@ -128,12 +135,15 @@ export default function AdminUsers() {
     } catch (error: any) {
       if (error.code === "ACTION_REJECTED") {
         toast.error("Transaction was rejected");
-      } else if (error.reason && error.reason.includes("Status unchanged")) {
-        toast.info("Status is already set to this value");
-      } else if (error.message && error.message.includes("Status unchanged")) {
+      } else if (
+        (error.reason && error.reason.includes("Status unchanged")) ||
+        (error.message && error.message.includes("Status unchanged"))
+      ) {
         toast.info("Status is already set to this value");
       } else {
-        console.error("Error updating user status:", error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Error updating user status:", error);
+        }
         toast.error("Failed to update user status");
       }
     } finally {
@@ -141,35 +151,7 @@ export default function AdminUsers() {
     }
   };
 
-  const getStatusColor = (status: number) => {
-    switch (status) {
-      case UserStatus.Approved:
-        return "bg-green-500";
-      case UserStatus.Pending:
-        return "bg-yellow-500";
-      case UserStatus.Rejected:
-        return "bg-red-500";
-      case UserStatus.Canceled:
-        return "bg-gray-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
 
-  const getStatusText = (status: number) => {
-    switch (status) {
-      case UserStatus.Approved:
-        return "Approved";
-      case UserStatus.Pending:
-        return "Pending";
-      case UserStatus.Rejected:
-        return "Rejected";
-      case UserStatus.Canceled:
-        return "Canceled";
-      default:
-        return "Unknown";
-    }
-  };
 
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;

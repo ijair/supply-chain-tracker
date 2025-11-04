@@ -137,7 +137,7 @@ for better understanding, how is the token workflow we will use an example.
     ## 5.6 Token page identify ✅
     * since there are 2 kind of tokens related with user (1. token transferred to the user 2. tokens created by the user related with another token as parentId) we need to create 2 views on that page to avoid confusions. ✅
 
-# 6. Profiles
+# 6. Profiles✅
 * create profile page on ./web/src/app/profile/page.tsx
 * display user information on this page
 
@@ -145,7 +145,7 @@ for better understanding, how is the token workflow we will use an example.
 # 7. Performance check and clean up
 * Check contract performance and standards
 * Do a performance check on the frontend
-* Clean up code, remove death code. 
+* Clean up code, remove dead code. 
 
 # 8. Tests
 * check contract actual tests, do the tests cover all the functionality.
@@ -188,7 +188,7 @@ for better understanding, how is the token workflow we will use an example.
 - complete supply chain flow
 - multiple tokens flow
 - traceability flow
-* create frontend test automate for admin to test functionalities on /web/tests follow the previous list to check test coverage.
+* create frontend automate test just for admin to test flow and functionality on /web/tests follow the previous list to check test coverage.
 
 
 

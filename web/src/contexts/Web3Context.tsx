@@ -121,7 +121,9 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         throw switchError;
       }
     } catch (error: any) {
-      console.error('Error ensuring Anvil network:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error ensuring Anvil network:', error);
+      }
       if (error.code === 4001) {
         toast.error('Please approve the network switch in MetaMask');
       } else {
@@ -204,14 +206,18 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
             setIsApproved(userObject.status === UserStatus.Approved);
           } catch (error: any) {
             if (!error.message || !error.message.includes("User does not exist")) {
-              console.error('Error fetching user data:', error);
+              if (process.env.NODE_ENV === 'development') {
+                console.error('Error fetching user data:', error);
+              }
             }
             setUser(null);
             setIsRegistered(false);
             setIsApproved(false);
           }
         } catch (error) {
-          console.error('Error reconnecting with new account:', error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Error reconnecting with new account:', error);
+          }
           disconnectWallet();
         }
       }
@@ -316,7 +322,9 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
           setIsApproved(userObject.status === UserStatus.Approved);
         } catch (error: any) {
           if (!error.message || !error.message.includes("User does not exist")) {
-            console.error('Error fetching user data:', error);
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Error fetching user data:', error);
+            }
           }
           setUser(null);
           setIsRegistered(false);
@@ -324,7 +332,9 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.error('Error checking connection:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error checking connection:', error);
+      }
       setIsConnected(false);
     }
   }, [checkMetaMask, ensureAnvilNetwork]);
@@ -395,7 +405,9 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error: any) {
-      console.error('Error connecting wallet:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error connecting wallet:', error);
+      }
       
       if (error.code === 4001) {
         toast.error('Please connect your MetaMask wallet to continue');
@@ -444,7 +456,9 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.error('Error refreshing user data:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error refreshing user data:', error);
+      }
     }
   }, [account, provider]);
 
