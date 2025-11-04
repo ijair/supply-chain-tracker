@@ -188,7 +188,9 @@ for better understanding, how is the token workflow we will use an example.
 - complete supply chain flow
 - multiple tokens flow
 - traceability flow
-* create frontend automate test just for admin to test flow and functionality on /web/tests follow the previous list to check test coverage.
+* create frontend automate test just accessible for for admin to run, test user flow( user connect -> user select role -> user send role request -> admin check(approved/rejected) ->user access) 
+* create frontend automate test just accessible for for admin to run, test token flow( Producer create token -> producer request transfer -> factory approval -> factory create derived product token -> factory create transfer request to retailer -> retailer approval -> retailer create request for costumer ->costumer approval) ->user access)
+* create te configuration for the frontend tests.
 
 
 

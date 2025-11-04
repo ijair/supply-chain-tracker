@@ -395,6 +395,7 @@ contract SupplyChainTracker {
         onlyApprovedUser
         returns (uint256)
     {
+        require(keccak256(bytes(users[msg.sender].role)) != keccak256(bytes("Consumer")), "Consumer cannot transfer");
         require(productTokens[_tokenId].id != 0, "Product token does not exist");
         require(productTokens[_tokenId].isActive, "Product token is not active");
         require(_to != address(0), "Invalid destination address");

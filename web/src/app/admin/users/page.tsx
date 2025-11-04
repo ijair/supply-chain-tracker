@@ -170,11 +170,18 @@ export default function AdminUsers() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <Link href="/dashboard">
-              <Button variant="ghost" className="mb-4">
-                ← Back to Dashboard
-              </Button>
-            </Link>
+            <div className="flex gap-2 mb-4">
+              <Link href="/dashboard">
+                <Button variant="ghost">
+                  ← Back to Dashboard
+                </Button>
+              </Link>
+              <Link href="/admin/tests">
+                <Button variant="outline">
+                  🧪 Automated Tests
+                </Button>
+              </Link>
+            </div>
             <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
               User Management
             </h1>
