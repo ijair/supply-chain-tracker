@@ -128,25 +128,42 @@ export default function Dashboard() {
           )}
           
           <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                📦 Register Supply
-              </CardTitle>
-              <CardDescription>
-                Add a new supply item to track
-              </CardDescription>
-            </CardHeader>
+            <Link href="/token">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  🪙 My Tokens
+                </CardTitle>
+                <CardDescription>
+                  View and manage your product tokens
+                </CardDescription>
+              </CardHeader>
+            </Link>
           </Card>
           
           <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                📊 View Supplies
-              </CardTitle>
-              <CardDescription>
-                Browse all tracked supply items
-              </CardDescription>
-            </CardHeader>
+            <Link href="/token/create">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  ➕ Create Token
+                </CardTitle>
+                <CardDescription>
+                  Create a new product token
+                </CardDescription>
+              </CardHeader>
+            </Link>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+            <Link href="/transfers">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  📤 Transfers
+                </CardTitle>
+                <CardDescription>
+                  View and manage transfer requests
+                </CardDescription>
+              </CardHeader>
+            </Link>
           </Card>
         </div>
 

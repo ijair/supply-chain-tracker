@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+**/out/
+**/build/
+**/dist/
+**/.next/
+
+# Cache directories
+**/cache/
+**/.cache/
+
+# Logs
+*.log
+**/*.log
+anvil.log
+anvil.pid
+
+# Environment files
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+coverage/
+**/coverage/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel/
+
+# Backups
+**/backups/
+
+# Broadcast and deployment artifacts (generated files, should not be tracked)
+**/broadcast/
+
+# Foundry specific
+**/lib/.git
+**/lib/.github
+
+# Screenshots (optional - uncomment if you don't want to track screenshots)
+# screenshots/
+

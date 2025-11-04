@@ -5,3 +5,6 @@ lib/
 backups/
 *.log
 
+
+.anvil_mnemonic
+sc/.anvil_mnemonic

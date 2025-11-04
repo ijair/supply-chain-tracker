@@ -18,6 +18,9 @@ RPC_URL="http://$ANVIL_HOST:$ANVIL_PORT"
 CONTRACT_NAME="${CONTRACT_NAME:-SupplyChainTracker}"
 ARTIFACTS_DIR="../web/src/contracts"
 
+# Global variable for contract address
+CONTRACT_ADDRESS=""
+
 print_status() {
     echo -e "${GREEN}[INFO]${NC} $1"
 }
@@ -39,6 +42,73 @@ check_anvil_running() {
     fi
 }
 
+# Function to verify contract is deployed
+verify_contract_deployed() {
+    local address=$1
+    if [ -z "$address" ] || [ "$address" == "null" ] || [ "$address" == "" ]; then
+        return 1
+    fi
+    
+    # Check if cast is available
+    if ! command -v cast &> /dev/null; then
+        print_warning "cast command not found, skipping bytecode verification"
+        return 0
+    fi
+    
+    # Get contract bytecode
+    BYTECODE=$(cast code "$address" --rpc-url "$RPC_URL" 2>/dev/null || echo "")
+    
+    # Check if bytecode is not empty (0x means no code)
+    if [ -z "$BYTECODE" ] || [ "$BYTECODE" == "0x" ] || [ "$BYTECODE" == "" ]; then
+        print_error "Contract verification failed: No bytecode found at address $address"
+        return 1
+    fi
+    
+    # Check if bytecode has reasonable length (at least 100 chars for constructor + contract)
+    BYTECODE_LENGTH=${#BYTECODE}
+    if [ "$BYTECODE_LENGTH" -lt 100 ]; then
+        print_error "Contract verification failed: Bytecode too short (likely not a contract)"
+        return 1
+    fi
+    
+    print_status "Contract verified: Bytecode found (${BYTECODE_LENGTH} chars)"
+    return 0
+}
+
+# Function to extract contract address from broadcast logs
+extract_contract_address() {
+    local broadcast_log=$1
+    
+    if [ ! -f "$broadcast_log" ]; then
+        return 1
+    fi
+    
+    # Try multiple methods to extract contract address
+    local address=""
+    
+    # Method 1: Look for contractAddress in transactions
+    if command -v jq &> /dev/null; then
+        address=$(jq -r '.transactions[] | select(.contractAddress != null) | .contractAddress' "$broadcast_log" 2>/dev/null | head -1)
+        
+        # Method 2: Look for contractAddress in receipts
+        if [ -z "$address" ] || [ "$address" == "null" ]; then
+            address=$(jq -r '.receipts[] | select(.contractAddress != null) | .contractAddress' "$broadcast_log" 2>/dev/null | head -1)
+        fi
+        
+        # Method 3: Look for createdContractAddress in transaction receipts
+        if [ -z "$address" ] || [ "$address" == "null" ]; then
+            address=$(jq -r '.transactions[] | select(.transaction.type == "CREATE") | .contractAddress' "$broadcast_log" 2>/dev/null | head -1)
+        fi
+    fi
+    
+    if [ -n "$address" ] && [ "$address" != "null" ] && [ "$address" != "" ]; then
+        echo "$address"
+        return 0
+    fi
+    
+    return 1
+}
+
 # Function to deploy contract
 deploy_contract() {
     print_status "Deploying $CONTRACT_NAME to $RPC_URL..."
@@ -49,36 +119,73 @@ deploy_contract() {
     USER0_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
     DEPLOYER_ADDRESS="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     
+    # Clean previous broadcast logs to avoid confusion
+    if [ -d "broadcast/Deploy.s.sol" ]; then
+        print_status "Cleaning previous broadcast logs..."
+        rm -rf broadcast/Deploy.s.sol/*
+    fi
+    
     # Deploy using forge script
+    print_status "Running forge script..."
     DEPLOY_OUTPUT=$(forge script script/Deploy.s.sol \
         --rpc-url "$RPC_URL" \
         --broadcast \
         --private-key "$USER0_PRIVATE_KEY" \
-        2>&1)
+        -vvv 2>&1)
     
-    # Extract contract address from output or broadcast logs
-    CONTRACT_ADDRESS=""
+    DEPLOY_EXIT_CODE=$?
     
-    # Try to get from broadcast logs first (most reliable)
-    BROADCAST_LOG=$(find broadcast/Deploy.s.sol -name "run-latest.json" 2>/dev/null | head -1)
-    if [ -n "$BROADCAST_LOG" ] && [ -f "$BROADCAST_LOG" ]; then
-        CONTRACT_ADDRESS=$(cat "$BROADCAST_LOG" | jq -r '.transactions[0].contractAddress' 2>/dev/null || \
-                          cat "$BROADCAST_LOG" | jq -r '.receipts[0].contractAddress' 2>/dev/null || \
-                          echo "")
-    fi
-    
-    # Fallback to deployment output
-    if [ -z "$CONTRACT_ADDRESS" ] || [ "$CONTRACT_ADDRESS" == "null" ]; then
-        CONTRACT_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "contract SupplyChainTracker" | grep -oP '0x[a-fA-F0-9]{40}' | head -1)
-    fi
-    
-    if [ -z "$CONTRACT_ADDRESS" ] || [ "$CONTRACT_ADDRESS" == "null" ]; then
-        print_error "Failed to extract contract address from deployment output"
+    if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
+        print_error "Forge script failed with exit code $DEPLOY_EXIT_CODE"
         echo "$DEPLOY_OUTPUT"
         exit 1
     fi
     
-    print_status "Contract deployed successfully!"
+    # Wait a moment for the transaction to be mined
+    sleep 2
+    
+    # Extract contract address from broadcast logs
+    CONTRACT_ADDRESS=""
+    BROADCAST_LOG=$(find broadcast/Deploy.s.sol -name "run-latest.json" -type f 2>/dev/null | head -1)
+    
+    if [ -n "$BROADCAST_LOG" ] && [ -f "$BROADCAST_LOG" ]; then
+        print_status "Extracting contract address from broadcast log: $BROADCAST_LOG"
+        CONTRACT_ADDRESS=$(extract_contract_address "$BROADCAST_LOG")
+    fi
+    
+    # Fallback: Try to extract from deployment output
+    if [ -z "$CONTRACT_ADDRESS" ] || [ "$CONTRACT_ADDRESS" == "null" ]; then
+        print_warning "Could not extract address from broadcast log, trying output..."
+        CONTRACT_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -i "deployed" | grep -oP '0x[a-fA-F0-9]{40}' | head -1 || \
+                          echo "$DEPLOY_OUTPUT" | grep -i "contract" | grep -oP '0x[a-fA-F0-9]{40}' | head -1 || \
+                          echo "")
+    fi
+    
+    if [ -z "$CONTRACT_ADDRESS" ] || [ "$CONTRACT_ADDRESS" == "null" ] || [ "$CONTRACT_ADDRESS" == "" ]; then
+        print_error "Failed to extract contract address from deployment"
+        print_error "Deployment output:"
+        echo "$DEPLOY_OUTPUT"
+        exit 1
+    fi
+    
+    print_status "Contract address extracted: $CONTRACT_ADDRESS"
+    
+    # Verify contract is actually deployed
+    print_status "Verifying contract deployment..."
+    if ! verify_contract_deployed "$CONTRACT_ADDRESS"; then
+        print_error "Contract deployment verification failed!"
+        print_error "The address $CONTRACT_ADDRESS does not contain contract code."
+        print_error "This usually means:"
+        print_error "  1. The transaction failed but was not detected"
+        print_error "  2. The wrong address was extracted"
+        print_error "  3. Anvil is not running or responding correctly"
+        echo ""
+        print_error "Deployment output:"
+        echo "$DEPLOY_OUTPUT"
+        exit 1
+    fi
+    
+    print_status "Contract deployed and verified successfully!"
     echo ""
     print_status "Contract Name: $CONTRACT_NAME"
     print_status "Contract Address: $CONTRACT_ADDRESS"
@@ -190,24 +297,31 @@ EOF
     echo "  Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 }
 
-# Function to verify deployment
+# Function to verify deployment (contract functionality)
 verify_deployment() {
     if [ -z "$CONTRACT_ADDRESS" ]; then
         print_error "No contract address to verify"
-        return
+        return 1
     fi
     
-    print_status "Verifying contract deployment..."
+    print_status "Verifying contract functionality..."
     
-    # Call owner() function to verify contract is working
-    if forge script -c "owner()" \
-       --rpc-url "$RPC_URL" \
-       --broadcast \
-       --target-contract "$CONTRACT_ADDRESS" > /dev/null 2>&1; then
-        print_status "Contract verified and working!"
+    # Verify contract owner using cast
+    if command -v cast &> /dev/null; then
+        # Try to call owner() function
+        OWNER=$(cast call "$CONTRACT_ADDRESS" "owner()" --rpc-url "$RPC_URL" 2>/dev/null || echo "")
+        
+        if [ -n "$OWNER" ] && [ "$OWNER" != "0x" ]; then
+            print_status "Contract owner verified: $OWNER"
+            return 0
+        else
+            print_warning "Could not verify contract owner (this may be normal if cast is not configured)"
+        fi
     else
-        print_warning "Could not verify contract automatically"
+        print_warning "cast command not found, skipping functionality verification"
     fi
+    
+    return 0
 }
 
 # Main execution
@@ -217,10 +331,15 @@ main() {
     
     check_anvil_running
     deploy_contract
-    verify_deployment
     
-    echo ""
-    print_status "Deployment completed successfully!"
+    # Verify deployment functionality
+    if verify_deployment; then
+        echo ""
+        print_status "Deployment completed successfully!"
+        print_status "Contract is deployed and verified at: $CONTRACT_ADDRESS"
+    else
+        print_warning "Deployment completed but functionality verification had issues"
+    fi
 }
 
 main

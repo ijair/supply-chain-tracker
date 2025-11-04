@@ -12,6 +12,7 @@ contract Deploy is Script {
     function setUp() public {}
     
     function run() public returns (SupplyChainTracker) {
+        // Start broadcasting transactions
         vm.startBroadcast();
         
         // Deploy the SupplyChainTracker contract
@@ -19,7 +20,9 @@ contract Deploy is Script {
         
         // Register the deployer (user0 from Anvil) as admin
         // User0 is the first test account provided by Anvil
-        tracker.registerAdmin(msg.sender);
+        // Using tx.origin to get the actual deployer address
+        address deployer = tx.origin;
+        tracker.registerAdmin(deployer);
         
         vm.stopBroadcast();
         

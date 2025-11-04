@@ -59,6 +59,24 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
   const [isRegistered, setIsRegistered] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
 
+  // Disconnect wallet helper function (defined early to avoid forward reference)
+  const disconnectWallet = useCallback(() => {
+    setIsConnected(false);
+    setAccount(null);
+    setChainId(null);
+    setProvider(null);
+    setSigner(null);
+    setUser(null);
+    setIsRegistered(false);
+    setIsApproved(false);
+
+    localStorage.removeItem(STORAGE_KEYS.ACCOUNT);
+    localStorage.removeItem(STORAGE_KEYS.CHAIN_ID);
+    localStorage.removeItem(STORAGE_KEYS.CONNECTION_STATUS);
+
+    toast.info('Wallet disconnected');
+  }, []);
+
   // Load persisted connection state
   useEffect(() => {
     const loadPersistedState = async () => {
@@ -82,14 +100,66 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!window.ethereum) return;
 
-    const handleAccountsChanged = (accounts: string[]) => {
+    const handleAccountsChanged = async (accounts: string[]) => {
       if (accounts.length === 0) {
         // User disconnected
         disconnectWallet();
       } else if (accounts[0] !== account) {
-        // Account changed
-        setAccount(accounts[0]);
-        localStorage.setItem(STORAGE_KEYS.ACCOUNT, accounts[0]);
+        // Account changed - refresh all data automatically
+        const newAccount = accounts[0];
+        setAccount(newAccount);
+        localStorage.setItem(STORAGE_KEYS.ACCOUNT, newAccount);
+        
+        // Reset user data
+        setUser(null);
+        setIsRegistered(false);
+        setIsApproved(false);
+        
+        // Reconnect with new account
+        toast.info('Account changed. Refreshing data...');
+        
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const network = await provider.getNetwork();
+          const signer = await provider.getSigner();
+          
+          setChainId(Number(network.chainId));
+          setProvider(provider);
+          setSigner(signer);
+          setIsConnected(true);
+          
+          localStorage.setItem(STORAGE_KEYS.CHAIN_ID, network.chainId.toString());
+          localStorage.setItem(STORAGE_KEYS.CONNECTION_STATUS, 'true');
+          
+          // Refresh user data for new account
+          const contract = new ethers.Contract(
+            contractConfig.address,
+            contractConfig.abi,
+            provider
+          );
+          try {
+            const userData = await contract.getUser(newAccount);
+            const userObject: User = {
+              id: Number(userData.id),
+              userAddress: userData.userAddress,
+              role: userData.role,
+              status: Number(userData.status) as UserStatus
+            };
+            setUser(userObject);
+            setIsRegistered(true);
+            setIsApproved(userObject.status === UserStatus.Approved);
+          } catch (error: any) {
+            if (!error.message || !error.message.includes("User does not exist")) {
+              console.error('Error fetching user data:', error);
+            }
+            setUser(null);
+            setIsRegistered(false);
+            setIsApproved(false);
+          }
+        } catch (error) {
+          console.error('Error reconnecting with new account:', error);
+          disconnectWallet();
+        }
       }
     };
 
@@ -97,7 +167,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       const newChainId = parseInt(chainIdHex, 16);
       setChainId(newChainId);
       localStorage.setItem(STORAGE_KEYS.CHAIN_ID, newChainId.toString());
-      toast.info('Network changed. Please reload the page.');
+      toast.info('Network changed. Reloading page...');
       window.location.reload();
     };
 
@@ -108,7 +178,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
       window.ethereum?.removeListener('chainChanged', handleChainChanged);
     };
-  }, [account]);
+  }, [account, disconnectWallet]);
 
   // Check MetaMask availability
   const checkMetaMask = useCallback(() => {
@@ -244,23 +314,6 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     }
   }, [checkMetaMask]);
 
-  // Disconnect wallet
-  const disconnectWallet = useCallback(() => {
-    setIsConnected(false);
-    setAccount(null);
-    setChainId(null);
-    setProvider(null);
-    setSigner(null);
-    setUser(null);
-    setIsRegistered(false);
-    setIsApproved(false);
-
-    localStorage.removeItem(STORAGE_KEYS.ACCOUNT);
-    localStorage.removeItem(STORAGE_KEYS.CHAIN_ID);
-    localStorage.removeItem(STORAGE_KEYS.CONNECTION_STATUS);
-
-    toast.info('Wallet disconnected');
-  }, []);
 
   // Refresh user data from contract
   const refreshUserData = useCallback(async () => {

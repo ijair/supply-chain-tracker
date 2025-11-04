@@ -4,13 +4,14 @@ pragma solidity ^0.8.13;
 /**
  * @title SupplyChainTracker
  * @dev Educational smart contract for tracking supplies on-chain
- * @notice Advanced supply chain tracking with user roles and moderation system
+ * @notice Advanced supply chain tracking with user roles, product tokens, and transfer system
  */
 contract SupplyChainTracker {
     // State variables
     address public owner;
-    uint256 public totalSupplies;
+    uint256 public totalProductTokens;
     uint256 public totalUsers;
+    uint256 public totalTransfers;
     
     // User status enumeration
     enum UserStatus {
@@ -18,6 +19,13 @@ contract SupplyChainTracker {
         Approved,
         Rejected,
         Canceled
+    }
+    
+    // Transfer status enumeration
+    enum TransferStatus {
+        Pending,
+        Accepted,
+        Rejected
     }
     
     // User structure
@@ -28,31 +36,60 @@ contract SupplyChainTracker {
         UserStatus status;
     }
     
-    // Supply item structure
-    struct SupplyItem {
+    // ProductToken structure - replaces SupplyItem
+    struct ProductToken {
         uint256 id;
-        string name;
-        string location;
+        address creator;
+        string metadata; // JSON string for product features
+        uint256 parentId; // 0 if no parent, otherwise parent product ID
         uint256 timestamp;
-        address registeredBy;
         bool isActive;
+    }
+    
+    // Transfer structure
+    struct Transfer {
+        uint256 id;
+        uint256 tokenId;
+        address from;
+        address to;
+        uint256 amount;
+        TransferStatus status;
+        uint256 requestTimestamp;
+        uint256 responseTimestamp;
     }
     
     // Mappings
     mapping(address => User) public users;
-    mapping(uint256 => SupplyItem) public supplies;
+    mapping(uint256 => ProductToken) public productTokens;
     mapping(string => bool) public validRoles;
+    
+    // Token balances: mapping(tokenId => mapping(address => balance))
+    mapping(uint256 => mapping(address => uint256)) public balances;
+    
+    // Token total supply: mapping(tokenId => totalSupply)
+    mapping(uint256 => uint256) public tokenTotalSupply;
+    
+    // Transfers: mapping(transferId => Transfer)
+    mapping(uint256 => Transfer) public transfers;
+    
+    // Pending transfers by address: mapping(address => transferId[])
+    mapping(address => uint256[]) public pendingTransfersByAddress;
+    
+    // Transaction history by token: mapping(tokenId => transferId[])
+    mapping(uint256 => uint256[]) public tokenTransactionHistory;
     
     // Arrays
     address[] public userAddresses;
-    uint256[] public supplyIds;
+    uint256[] public productTokenIds;
+    uint256[] public transferIds;
     
     // Events
     event UserRegistered(uint256 indexed id, address indexed userAddress, string role, UserStatus status);
     event UserStatusUpdated(uint256 indexed id, address indexed userAddress, UserStatus newStatus);
-    event SupplyRegistered(uint256 indexed id, string name, address indexed registeredBy);
-    event SupplyUpdated(uint256 indexed id, string newLocation);
-    event SupplyDeactivated(uint256 indexed id);
+    event ProductTokenCreated(uint256 indexed tokenId, address indexed creator, string metadata, uint256 parentId);
+    event TransferRequestCreated(uint256 indexed transferId, uint256 indexed tokenId, address indexed from, address to, uint256 amount);
+    event TransferAccepted(uint256 indexed transferId, uint256 indexed tokenId, address indexed from, address to, uint256 amount);
+    event TransferRejected(uint256 indexed transferId, uint256 indexed tokenId, address indexed from, address to, uint256 amount);
     
     // Modifiers
     modifier onlyOwner() {
@@ -68,8 +105,9 @@ contract SupplyChainTracker {
     // Constructor
     constructor() {
         owner = msg.sender;
-        totalSupplies = 0;
+        totalProductTokens = 0;
         totalUsers = 0;
+        totalTransfers = 0;
         
         // Initialize valid roles
         validRoles["Producer"] = true;
@@ -192,88 +230,296 @@ contract SupplyChainTracker {
     }
     
     /**
-     * @dev Register a new supply item (Approved users only)
-     * @param _name Name of the supply item
-     * @param _location Current location of the supply
-     * @return supplyId The ID of the newly registered supply
+     * @dev Get approved users by role (Approved users only)
+     * @notice This function allows approved users to get a list of approved users
+     *         for a specific role, useful for transfer operations
+     * @param _role The role to filter by (e.g., "Factory", "Retailer", "Consumer")
+     * @return addresses Array of addresses of approved users with the specified role
      */
-    function registerSupply(string memory _name, string memory _location) 
+    function getApprovedUsersByRole(string memory _role) 
+        public 
+        view 
+        onlyApprovedUser 
+        returns (address[] memory) 
+    {
+        require(validRoles[_role], "Invalid role");
+        
+        // Count approved users with the specified role
+        uint256 count = 0;
+        for (uint256 i = 0; i < userAddresses.length; i++) {
+            address userAddr = userAddresses[i];
+            if (
+                users[userAddr].id != 0 &&
+                users[userAddr].status == UserStatus.Approved &&
+                keccak256(bytes(users[userAddr].role)) == keccak256(bytes(_role))
+            ) {
+                count++;
+            }
+        }
+        
+        // Create array with exact size
+        address[] memory result = new address[](count);
+        uint256 index = 0;
+        
+        // Populate array
+        for (uint256 i = 0; i < userAddresses.length; i++) {
+            address userAddr = userAddresses[i];
+            if (
+                users[userAddr].id != 0 &&
+                users[userAddr].status == UserStatus.Approved &&
+                keccak256(bytes(users[userAddr].role)) == keccak256(bytes(_role))
+            ) {
+                result[index] = userAddr;
+                index++;
+            }
+        }
+        
+        return result;
+    }
+    
+    // ==================== ProductToken Functions ====================
+    
+    /**
+     * @dev Create a new product token (Approved users only)
+     * @param _metadata JSON string containing product features
+     * @param _parentId Parent product ID (0 if no parent)
+     * @param _amount Initial amount of tokens to mint
+     * @return tokenId The ID of the newly created product token
+     */
+    function createProductToken(
+        string memory _metadata,
+        uint256 _parentId,
+        uint256 _amount
+    ) 
         public 
         onlyApprovedUser
         returns (uint256) 
     {
-        totalSupplies++;
-        uint256 supplyId = totalSupplies;
+        require(_amount > 0, "Amount must be greater than 0");
         
-        supplies[supplyId] = SupplyItem({
-            id: supplyId,
-            name: _name,
-            location: _location,
+        // If parentId is provided, validate it exists and user has balance
+        if (_parentId > 0) {
+            require(productTokens[_parentId].id != 0, "Parent token does not exist");
+            require(productTokens[_parentId].isActive, "Parent token is not active");
+            require(balances[_parentId][msg.sender] >= _amount, "Insufficient parent token balance");
+            
+            // Update parent token balance (deduct from inventory)
+            balances[_parentId][msg.sender] -= _amount;
+        }
+        
+        // Calculate next sequential token ID
+        totalProductTokens++;
+        uint256 tokenId = totalProductTokens;
+        
+        // Create product token
+        productTokens[tokenId] = ProductToken({
+            id: tokenId,
+            creator: msg.sender,
+            metadata: _metadata,
+            parentId: _parentId,
             timestamp: block.timestamp,
-            registeredBy: msg.sender,
             isActive: true
         });
         
-        supplyIds.push(supplyId);
+        // Mint tokens to creator
+        balances[tokenId][msg.sender] += _amount;
+        tokenTotalSupply[tokenId] += _amount;
         
-        emit SupplyRegistered(supplyId, _name, msg.sender);
+        productTokenIds.push(tokenId);
         
-        return supplyId;
+        emit ProductTokenCreated(tokenId, msg.sender, _metadata, _parentId);
+        
+        return tokenId;
     }
     
     /**
-     * @dev Update the location of an existing supply (Approved users only)
-     * @param _id Supply ID to update
-     * @param _newLocation New location of the supply
+     * @dev Get product token details
+     * @param _tokenId Token ID
+     * @return ProductToken struct with all details
      */
-    function updateSupplyLocation(uint256 _id, string memory _newLocation) 
-        public 
-        onlyApprovedUser 
+    function getProductToken(uint256 _tokenId) public view returns (ProductToken memory) {
+        require(productTokens[_tokenId].id != 0, "Product token does not exist");
+        return productTokens[_tokenId];
+    }
+    
+    /**
+     * @dev Get token balance for an address
+     * @param _tokenId Token ID
+     * @param _address Address to check balance
+     * @return Balance amount
+     */
+    function getTokenBalance(uint256 _tokenId, address _address) public view returns (uint256) {
+        return balances[_tokenId][_address];
+    }
+    
+    /**
+     * @dev Get total supply of a token
+     * @param _tokenId Token ID
+     * @return Total supply amount
+     */
+    function getTokenTotalSupply(uint256 _tokenId) public view returns (uint256) {
+        return tokenTotalSupply[_tokenId];
+    }
+    
+    /**
+     * @dev Get total number of product tokens
+     * @return Total count of product tokens
+     */
+    function getTotalProductTokens() public view returns (uint256) {
+        return totalProductTokens;
+    }
+    
+    /**
+     * @dev Get all product token IDs
+     * @return Array of all product token IDs
+     */
+    function getAllProductTokenIds() public view returns (uint256[] memory) {
+        return productTokenIds;
+    }
+    
+    // ==================== Transfer Functions ====================
+    
+    /**
+     * @dev Create a transfer request (Approved users only)
+     * @param _tokenId Token ID to transfer
+     * @param _to Destination address
+     * @param _amount Amount of tokens to transfer
+     * @return transferId The ID of the newly created transfer request
+     */
+    function createTransferRequest(
+        uint256 _tokenId,
+        address _to,
+        uint256 _amount
+    )
+        public
+        onlyApprovedUser
+        returns (uint256)
     {
-        require(supplies[_id].id != 0, "Supply does not exist");
-        require(supplies[_id].isActive, "Supply is not active");
+        require(productTokens[_tokenId].id != 0, "Product token does not exist");
+        require(productTokens[_tokenId].isActive, "Product token is not active");
+        require(_to != address(0), "Invalid destination address");
+        require(_to != msg.sender, "Cannot transfer to yourself");
+        require(_amount > 0, "Amount must be greater than 0");
+        require(balances[_tokenId][msg.sender] >= _amount, "Insufficient balance");
+        require(users[_to].id != 0, "Destination user does not exist");
+        require(users[_to].status == UserStatus.Approved, "Destination user not approved");
         
-        supplies[_id].location = _newLocation;
+        // Calculate next sequential transfer ID
+        totalTransfers++;
+        uint256 transferId = totalTransfers;
         
-        emit SupplyUpdated(_id, _newLocation);
+        // Create transfer request
+        transfers[transferId] = Transfer({
+            id: transferId,
+            tokenId: _tokenId,
+            from: msg.sender,
+            to: _to,
+            amount: _amount,
+            status: TransferStatus.Pending,
+            requestTimestamp: block.timestamp,
+            responseTimestamp: 0
+        });
+        
+        // Lock tokens (subtract from sender's balance temporarily)
+        balances[_tokenId][msg.sender] -= _amount;
+        
+        // Add to pending transfers lists
+        pendingTransfersByAddress[_to].push(transferId);
+        transferIds.push(transferId);
+        
+        emit TransferRequestCreated(transferId, _tokenId, msg.sender, _to, _amount);
+        
+        return transferId;
     }
     
     /**
-     * @dev Deactivate a supply item (Approved users only)
-     * @param _id Supply ID to deactivate
+     * @dev Accept a transfer request (Only destination address)
+     * @param _transferId Transfer ID to accept
      */
-    function deactivateSupply(uint256 _id) public onlyApprovedUser {
-        require(supplies[_id].id != 0, "Supply does not exist");
-        require(supplies[_id].isActive, "Supply is already inactive");
+    function acceptTransfer(uint256 _transferId) public {
+        Transfer storage transfer = transfers[_transferId];
+        require(transfer.id != 0, "Transfer does not exist");
+        require(transfer.to == msg.sender, "Only destination can accept");
+        require(transfer.status == TransferStatus.Pending, "Transfer not pending");
         
-        supplies[_id].isActive = false;
+        // Update transfer status
+        transfer.status = TransferStatus.Accepted;
+        transfer.responseTimestamp = block.timestamp;
         
-        emit SupplyDeactivated(_id);
+        // Transfer tokens to destination
+        balances[transfer.tokenId][transfer.to] += transfer.amount;
+        
+        // Add to transaction history
+        tokenTransactionHistory[transfer.tokenId].push(_transferId);
+        
+        emit TransferAccepted(
+            _transferId,
+            transfer.tokenId,
+            transfer.from,
+            transfer.to,
+            transfer.amount
+        );
     }
     
     /**
-     * @dev Get supply item details
-     * @param _id Supply ID
-     * @return SupplyItem struct with all details
+     * @dev Reject a transfer request (Only destination address)
+     * @param _transferId Transfer ID to reject
      */
-    function getSupply(uint256 _id) public view returns (SupplyItem memory) {
-        require(supplies[_id].id != 0, "Supply does not exist");
-        return supplies[_id];
+    function rejectTransfer(uint256 _transferId) public {
+        Transfer storage transfer = transfers[_transferId];
+        require(transfer.id != 0, "Transfer does not exist");
+        require(transfer.to == msg.sender, "Only destination can reject");
+        require(transfer.status == TransferStatus.Pending, "Transfer not pending");
+        
+        // Update transfer status
+        transfer.status = TransferStatus.Rejected;
+        transfer.responseTimestamp = block.timestamp;
+        
+        // Return tokens to sender
+        balances[transfer.tokenId][transfer.from] += transfer.amount;
+        
+        emit TransferRejected(
+            _transferId,
+            transfer.tokenId,
+            transfer.from,
+            transfer.to,
+            transfer.amount
+        );
     }
     
     /**
-     * @dev Get total number of registered supplies
-     * @return Total count of supplies
+     * @dev Get transfer details
+     * @param _transferId Transfer ID
+     * @return Transfer struct with all details
      */
-    function getTotalSupplies() public view returns (uint256) {
-        return totalSupplies;
+    function getTransfer(uint256 _transferId) public view returns (Transfer memory) {
+        require(transfers[_transferId].id != 0, "Transfer does not exist");
+        return transfers[_transferId];
     }
     
     /**
-     * @dev Get all supply IDs
-     * @return Array of all supply IDs
+     * @dev Get all pending transfers for an address
+     * @param _address Address to get pending transfers for
+     * @return Array of transfer IDs
      */
-    function getAllSupplyIds() public view returns (uint256[] memory) {
-        return supplyIds;
+    function getPendingTransfers(address _address) public view returns (uint256[] memory) {
+        return pendingTransfersByAddress[_address];
+    }
+    
+    /**
+     * @dev Get transaction chain history for a product token
+     * @param _tokenId Token ID
+     * @return Array of transfer IDs representing the transaction history
+     */
+    function getTokenTransactionHistory(uint256 _tokenId) public view returns (uint256[] memory) {
+        return tokenTransactionHistory[_tokenId];
+    }
+    
+    /**
+     * @dev Get total number of transfers
+     * @return Total count of transfers
+     */
+    function getTotalTransfers() public view returns (uint256) {
+        return totalTransfers;
     }
 }
