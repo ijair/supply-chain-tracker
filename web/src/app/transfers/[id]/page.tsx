@@ -74,7 +74,13 @@ export default function TransferDetailPage() {
         const tokenData = await contract.getProductToken(transferObj.tokenId);
         let metadata;
         try {
-          metadata = JSON.parse(tokenData.metadata);
+          const parsed = JSON.parse(tokenData.metadata);
+          // Validate it's an object
+          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+            metadata = parsed;
+          } else {
+            metadata = { name: `Token #${transferObj.tokenId}` };
+          }
         } catch {
           metadata = { name: `Token #${transferObj.tokenId}` };
         }

@@ -96,63 +96,76 @@ start_anvil() {
         print_status "Chain ID: $ANVIL_CHAIN_ID"
         print_status "Logs: $ANVIL_LOG_FILE"
         
-        # Wait a bit more for Anvil to fully initialize and write logs
-        sleep 4
+        # Wait for Anvil to fully initialize and write logs
+        sleep 3
         
         # Extract addresses and private keys from Anvil log output
-        print_status "Extracting account addresses and private keys from Anvil..."
-        print_status "Account addresses and private keys:"
-        
-        # Parse Anvil log file for account information
-        # Anvil outputs accounts in format like:
-        # Account #0: 0x... (Private Key: 0x...)
+        # Anvil outputs accounts in format:
+        # (0) 0x... (10000.000000000000000000 ETH)
+        # Private Keys section:
+        # (0) 0x...
         if [ -f "$ANVIL_LOG_FILE" ]; then
-            # Try multiple patterns to match Anvil's output format
-            ACCOUNT_COUNT=0
-            while IFS= read -r line && [ $ACCOUNT_COUNT -lt 10 ]; do
-                # Pattern 1: Standard Anvil format "Account #N: 0x... (PK: 0x...)"
-                if echo "$line" | grep -qE "Account #[0-9]+:"; then
-                    echo "  $line" | sed 's/^/  /'
-                    ACCOUNT_COUNT=$((ACCOUNT_COUNT + 1))
-                # Pattern 2: Alternative format
-                elif echo "$line" | grep -qE "^0x[a-fA-F0-9]{40}.*0x[a-fA-F0-9]{64}"; then
-                    ADDR=$(echo "$line" | grep -oP '0x[a-fA-F0-9]{40}' | head -1)
-                    PK=$(echo "$line" | grep -oP '0x[a-fA-F0-9]{64}' | head -1)
-                    if [ -n "$ADDR" ] && [ -n "$PK" ]; then
-                        print_status "  User$ACCOUNT_COUNT: $ADDR"
-                        print_status "        Private Key: $PK"
+            # Wait for Anvil to finish writing initial output (check for "Listening on")
+            MAX_WAIT=10
+            WAIT_COUNT=0
+            while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+                if grep -q "Listening on" "$ANVIL_LOG_FILE" 2>/dev/null; then
+                    break
+                fi
+                sleep 0.5
+                WAIT_COUNT=$((WAIT_COUNT + 1))
+            done
+            
+            # Parse Anvil log file for account information
+            # Anvil outputs: Available Accounts section with addresses, then Private Keys section
+            # Extract addresses and private keys, matching them by index
+            print_status "Account addresses and private keys:"
+            
+            # Extract addresses from "Available Accounts" section (lines like "(0) 0x...")
+            # Extract private keys from "Private Keys" section (lines like "(0) 0x...")
+            # Match them by index and display
+            IN_PRIVATE_KEYS_SECTION=0
+            
+            # First, collect all addresses
+            ADDRESS_LINES=$(grep -E "^\([0-9]+\) 0x[a-fA-F0-9]{40}" "$ANVIL_LOG_FILE" | head -10)
+            
+            # Then process private keys and match with addresses
+            while IFS= read -r line; do
+                # Detect "Private Keys" section
+                if echo "$line" | grep -qi "Private Keys"; then
+                    IN_PRIVATE_KEYS_SECTION=1
+                    continue
+                fi
+                
+                # Match private key format: "(0) 0x..."
+                if [ $IN_PRIVATE_KEYS_SECTION -eq 1 ] && echo "$line" | grep -qE "^\([0-9]+\) 0x[a-fA-F0-9]{64}"; then
+                    INDEX=$(echo "$line" | grep -oE '^\([0-9]+\)' | tr -d '()')
+                    PRIVATE_KEY=$(echo "$line" | grep -oE '0x[a-fA-F0-9]{64}' | head -1)
+                    
+                    # Find matching address for this index
+                    MATCHING_ADDRESS=$(echo "$ADDRESS_LINES" | grep -E "^\($INDEX\) 0x[a-fA-F0-9]{40}" | grep -oE '0x[a-fA-F0-9]{40}' | head -1)
+                    
+                    if [ -n "$MATCHING_ADDRESS" ] && [ -n "$PRIVATE_KEY" ]; then
+                        print_status "  User$INDEX: $MATCHING_ADDRESS"
+                        print_status "        Private Key: $PRIVATE_KEY"
                         ACCOUNT_COUNT=$((ACCOUNT_COUNT + 1))
                     fi
                 fi
             done < "$ANVIL_LOG_FILE"
             
-            # If we didn't find accounts in the log, try using cast to derive them
-            if [ $ACCOUNT_COUNT -eq 0 ] && command -v cast &> /dev/null; then
-                print_status "Parsing from log failed, deriving addresses from mnemonic..."
-                for i in {0..9}; do
-                    # Try to derive using cast
-                    DERIVE_CMD="cast wallet derive --mnemonic \"$ANVIL_MNEMONIC\" --index $i"
-                    DERIVE_OUTPUT=$(eval $DERIVE_CMD 2>&1)
-                    
-                    # Extract private key (usually the last hex string of 64 chars)
-                    PRIVATE_KEY=$(echo "$DERIVE_OUTPUT" | grep -oE '0x[a-fA-F0-9]{64}' | tail -1)
-                    if [ -n "$PRIVATE_KEY" ]; then
-                        ADDRESS=$(cast wallet address $PRIVATE_KEY 2>/dev/null || echo "")
-                        if [ -n "$ADDRESS" ]; then
-                            print_status "  User$i: $ADDRESS"
-                            print_status "        Private Key: $PRIVATE_KEY"
-                        fi
-                    fi
-                done
+            if [ $ACCOUNT_COUNT -eq 0 ]; then
+                print_warning "Could not extract account information from log."
+                print_warning "Check $ANVIL_LOG_FILE manually for account details."
             fi
         else
             print_warning "Anvil log file not found. Cannot extract addresses automatically."
             print_warning "Check that Anvil started correctly and check logs manually."
         fi
         
-        print_status ""
-        print_warning "NOTE: These are NEW addresses that should not trigger security warnings."
-        print_status "If you see warnings, the addresses are unique to your local setup."
+        if [ $ACCOUNT_COUNT -gt 0 ]; then
+            print_status ""
+            print_warning "NOTE: These are test addresses for local development."
+        fi
     else
         print_error "Failed to start Anvil. Check logs: $ANVIL_LOG_FILE"
         exit 1

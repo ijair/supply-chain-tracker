@@ -22,7 +22,8 @@ export const ANVIL_CHAIN_ID = '0x7a69'; // 31337 in hex
  * Setup mock Ethereum provider in the browser context
  */
 export async function setupMockWallet(page: Page, account: string = TEST_ACCOUNTS.PRODUCER) {
-  await page.addInitScript((accountAddress, chainId) => {
+  await page.addInitScript((args: { accountAddress: string; chainId: string }) => {
+    const { accountAddress, chainId } = args;
     // Mock window.ethereum with proper structure for ethers.js BrowserProvider
     const mockEthereum = {
       isMetaMask: true,
@@ -106,7 +107,7 @@ export async function setupMockWallet(page: Page, account: string = TEST_ACCOUNT
       writable: true,
       configurable: true,
     });
-  }, account, ANVIL_CHAIN_ID);
+  }, { accountAddress: account, chainId: ANVIL_CHAIN_ID });
 }
 
 /**

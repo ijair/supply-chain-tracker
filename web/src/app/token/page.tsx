@@ -107,11 +107,17 @@ export default function TokenListPage() {
   };
 
   const parseMetadata = (metadata: string) => {
+    // Safe JSON parsing with fallback
     try {
-      return JSON.parse(metadata);
+      const parsed = JSON.parse(metadata);
+      // Basic validation - ensure it's an object
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        return parsed;
+      }
     } catch {
-      return { name: "Unknown Product" };
+      // Invalid JSON - return safe fallback
     }
+    return { name: "Unknown Product" };
   };
 
   // Filter tokens based on active view

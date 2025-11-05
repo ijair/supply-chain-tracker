@@ -13,6 +13,12 @@ import { contractConfig } from "@/contracts/config";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { Trash2, Plus } from "lucide-react";
+import { 
+  validateMetadataField, 
+  validateMetadataTotal,
+  validateTokenAmount,
+  MAX_INPUT_LENGTHS 
+} from "@/lib/security";
 
 interface MetadataField {
   id: string;
@@ -78,7 +84,13 @@ export default function CreateTokenPage() {
           if (Number(balance) > 0) {
             let metadata;
             try {
-              metadata = JSON.parse(tokenData.metadata);
+              const parsed = JSON.parse(tokenData.metadata);
+              // Validate it's an object
+              if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+                metadata = parsed;
+              } else {
+                metadata = { name: `Token #${tokenId}` };
+              }
             } catch {
               metadata = { name: `Token #${tokenId}` };
             }
@@ -124,34 +136,60 @@ export default function CreateTokenPage() {
     setMetadataFields(metadataFields.filter((field) => field.id !== id));
   };
 
-  // Update metadata field
+  // Update metadata field with length validation
   const updateMetadataField = (id: string, field: "label" | "value", value: string) => {
+    // Enforce maximum length
+    const maxLength = field === "label" 
+      ? MAX_INPUT_LENGTHS.METADATA_LABEL 
+      : MAX_INPUT_LENGTHS.METADATA_VALUE;
+    
+    if (value.length > maxLength) {
+      toast.error(`${field === "label" ? "Label" : "Value"} must be ${maxLength} characters or less`);
+      return;
+    }
+
     setMetadataFields(
       metadataFields.map((f) => (f.id === id ? { ...f, [field]: value } : f))
     );
   };
 
-  // Transform metadata fields to JSON
+  // Transform metadata fields to JSON with validation
   const transformMetadataToJSON = (): string => {
     const metadataObject: Record<string, string> = {};
 
-    metadataFields.forEach((field) => {
-      // Trim and lowercase labels, trim values
+    // Validate each field
+    for (const field of metadataFields) {
       const processedLabel = field.label.trim().toLowerCase();
       const processedValue = field.value.trim();
 
-      // Only add if both label and value are not empty
-      if (processedLabel && processedValue) {
-        metadataObject[processedLabel] = processedValue;
+      // Skip empty fields
+      if (!processedLabel || !processedValue) {
+        continue;
       }
-    });
+
+      // Validate field
+      const validation = validateMetadataField(processedLabel, processedValue);
+      if (!validation.valid) {
+        throw new Error(validation.error || "Invalid metadata field");
+      }
+
+      metadataObject[processedLabel] = processedValue;
+    }
 
     // Validate that we have at least one field
     if (Object.keys(metadataObject).length === 0) {
       throw new Error("At least one metadata field with both label and value is required");
     }
 
-    return JSON.stringify(metadataObject);
+    const metadataJson = JSON.stringify(metadataObject);
+
+    // Validate total length
+    const totalValidation = validateMetadataTotal(metadataJson);
+    if (!totalValidation.valid) {
+      throw new Error(totalValidation.error || "Metadata too large");
+    }
+
+    return metadataJson;
   };
 
   const onSubmit = async (data: CreateTokenForm) => {
@@ -387,18 +425,15 @@ export default function CreateTokenPage() {
                   id="amount"
                   type="number"
                   min="1"
+                  max={parentId !== "0" && selectedParent ? selectedParent.balance : undefined}
                   {...register("amount", {
                     required: "Amount is required",
                     min: { value: 1, message: "Amount must be at least 1" },
                     validate: (value) => {
-                      const num = parseInt(value);
-                      if (isNaN(num) || num <= 0) {
-                        return "Amount must be a positive number";
-                      }
-                      if (parentId !== "0" && selectedParent) {
-                        if (num > selectedParent.balance) {
-                          return `Amount exceeds available balance (${selectedParent.balance})`;
-                        }
+                      const balance = parentId !== "0" && selectedParent ? selectedParent.balance : undefined;
+                      const validation = validateTokenAmount(value, balance);
+                      if (!validation.valid) {
+                        return validation.error || "Invalid amount";
                       }
                       return true;
                     },

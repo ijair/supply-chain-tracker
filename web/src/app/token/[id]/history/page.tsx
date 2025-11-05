@@ -192,11 +192,17 @@ export default function TokenHistoryPage() {
   };
 
   const parseMetadata = (metadata: string) => {
+    // Safe JSON parsing with validation
     try {
-      return JSON.parse(metadata);
+      const parsed = JSON.parse(metadata);
+      // Validate it's an object, not array or null
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        return parsed;
+      }
     } catch {
-      return { name: "Unknown Product" };
+      // Invalid JSON - return safe fallback
     }
+    return { name: "Unknown Product" };
   };
 
   const getStatusBadge = (status: number) => {

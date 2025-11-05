@@ -13,6 +13,7 @@ import { ethers } from "ethers";
 import { contractConfig } from "@/contracts/config";
 import { toast } from "sonner";
 import { useForm, Controller } from "react-hook-form";
+import { validateTokenAmount, validateAndSanitizeAddress } from "@/lib/security";
 
 interface AvailableUser {
   address: string;
@@ -80,7 +81,13 @@ export default function TransferTokenPage() {
 
       let metadata;
       try {
-        metadata = JSON.parse(tokenData.metadata);
+        const parsed = JSON.parse(tokenData.metadata);
+        // Validate it's an object
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          metadata = parsed;
+        } else {
+          metadata = { name: `Token #${tokenId}` };
+        }
       } catch {
         metadata = { name: `Token #${tokenId}` };
       }
@@ -215,36 +222,29 @@ export default function TransferTokenPage() {
       return;
     }
 
-    const toAddress = data.to.trim();
-    const amount = parseInt(data.amount);
-
-    // Validate recipient is selected
-    if (!toAddress) {
-      toast.error("Please select a recipient");
+    // Validate and sanitize recipient address
+    const addressValidation = validateAndSanitizeAddress(data.to);
+    if (!addressValidation.valid || !addressValidation.sanitized) {
+      toast.error(addressValidation.error || "Invalid recipient address");
       return;
     }
 
-    // Validate address
-    if (!ethers.isAddress(toAddress)) {
-      toast.error("Invalid Ethereum address");
-      return;
-    }
+    const toAddress = addressValidation.sanitized;
 
+    // Prevent self-transfer
     if (toAddress.toLowerCase() === account.toLowerCase()) {
       toast.error("Cannot transfer to yourself");
       return;
     }
 
-    // Validate amount
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Amount must be greater than 0");
+    // Validate amount using security utility
+    const amountValidation = validateTokenAmount(data.amount, tokenBalance);
+    if (!amountValidation.valid || amountValidation.value === undefined) {
+      toast.error(amountValidation.error || "Invalid amount");
       return;
     }
 
-    if (amount > tokenBalance) {
-      toast.error(`Insufficient balance. You have ${tokenBalance} tokens.`);
-      return;
-    }
+    const amount = amountValidation.value;
 
     // Validate recipient is in available users list
     const recipientExists = availableUsers.some(

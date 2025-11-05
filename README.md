@@ -309,6 +309,39 @@ FORK_URL=<url> FORK_BLOCK_NUMBER=<block> ./scripts/deploy.sh
 - **Contexts**: Web3 and app state in `web/src/contexts/`
 - **Tests**: Comprehensive coverage for all smart contract functions
 
+## Security
+
+### Security Audit
+
+A comprehensive security audit has been performed on both the smart contract and frontend application. All identified vulnerabilities have been addressed.
+
+**Security Report:** See [SECURITY_REPORT.md](./SECURITY_REPORT.md) for detailed findings and fixes.
+
+### Security Features Implemented
+
+**Smart Contract:**
+- ✅ Two-step ownership transfer mechanism
+- ✅ Emergency pause functionality
+- ✅ Metadata length validation (10KB limit)
+- ✅ Pagination for user queries (prevents DoS)
+- ✅ Comprehensive access control with modifiers
+- ✅ Input validation on all functions
+
+**Frontend:**
+- ✅ XSS protection via JSON sanitization
+- ✅ Input length validation
+- ✅ Content Security Policy headers
+- ✅ Safe JSON parsing with validation
+- ✅ Security utilities for input sanitization
+
+### Best Practices
+
+1. **Always validate user input** before sending to blockchain
+2. **Never trust user-provided data** - sanitize all inputs
+3. **Use the security utilities** in `web/src/lib/security.ts`
+4. **Review the security report** before deploying to production
+5. **Regular security audits** are recommended
+
 ## Requirements
 
 - All code and comments must be in English

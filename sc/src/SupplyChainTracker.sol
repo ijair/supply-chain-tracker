@@ -9,9 +9,17 @@ pragma solidity ^0.8.13;
 contract SupplyChainTracker {
     // State variables
     address public owner;
+    address public pendingOwner; // For two-step ownership transfer
+    bool public paused; // Emergency pause mechanism
     uint256 public totalProductTokens;
     uint256 public totalUsers;
     uint256 public totalTransfers;
+    
+    // Constants
+    uint256 public constant MAX_METADATA_LENGTH = 10240; // 10KB limit for metadata
+    uint256 public constant MAX_USERS_PER_QUERY = 100; // Limit for pagination
+    uint256 public constant MAX_TRANSFERS_PER_QUERY = 100; // Limit for transfer pagination
+    uint256 public constant MAX_AMOUNT = type(uint256).max / 2; // Prevent overflow issues
     
     // User status enumeration
     enum UserStatus {
@@ -90,6 +98,10 @@ contract SupplyChainTracker {
     event TransferRequestCreated(uint256 indexed transferId, uint256 indexed tokenId, address indexed from, address to, uint256 amount);
     event TransferAccepted(uint256 indexed transferId, uint256 indexed tokenId, address indexed from, address to, uint256 amount);
     event TransferRejected(uint256 indexed transferId, uint256 indexed tokenId, address indexed from, address to, uint256 amount);
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event Paused(address indexed account);
+    event Unpaused(address indexed account);
     
     // Modifiers
     modifier onlyOwner() {
@@ -102,9 +114,20 @@ contract SupplyChainTracker {
         _;
     }
     
+    modifier whenNotPaused() {
+        require(!paused, "Contract is paused");
+        _;
+    }
+    
+    modifier whenPaused() {
+        require(paused, "Contract is not paused");
+        _;
+    }
+    
     // Constructor
     constructor() {
         owner = msg.sender;
+        paused = false;
         totalProductTokens = 0;
         totalUsers = 0;
         totalTransfers = 0;
@@ -115,6 +138,54 @@ contract SupplyChainTracker {
         validRoles["Retailer"] = true;
         validRoles["Consumer"] = true;
         validRoles["Admin"] = true;
+    }
+    
+    /**
+     * @dev Initiate ownership transfer (two-step process)
+     * @param _newOwner Address of the new owner
+     */
+    function transferOwnership(address _newOwner) public onlyOwner {
+        require(_newOwner != address(0), "Invalid new owner address");
+        require(_newOwner != owner, "New owner must be different");
+        pendingOwner = _newOwner;
+        emit OwnershipTransferStarted(owner, _newOwner);
+    }
+    
+    /**
+     * @dev Accept ownership transfer (must be called by pendingOwner)
+     */
+    function acceptOwnership() public {
+        require(msg.sender == pendingOwner, "Only pending owner can accept");
+        address oldOwner = owner;
+        owner = pendingOwner;
+        pendingOwner = address(0);
+        emit OwnershipTransferred(oldOwner, owner);
+    }
+    
+    /**
+     * @dev Renounce ownership (decentralize the contract)
+     */
+    function renounceOwnership() public onlyOwner {
+        address oldOwner = owner;
+        owner = address(0);
+        pendingOwner = address(0);
+        emit OwnershipTransferred(oldOwner, address(0));
+    }
+    
+    /**
+     * @dev Pause contract operations (emergency only)
+     */
+    function pause() public onlyOwner whenNotPaused {
+        paused = true;
+        emit Paused(msg.sender);
+    }
+    
+    /**
+     * @dev Unpause contract operations
+     */
+    function unpause() public onlyOwner whenPaused {
+        paused = false;
+        emit Unpaused(msg.sender);
     }
     
     /**
@@ -234,15 +305,23 @@ contract SupplyChainTracker {
      * @notice This function allows approved users to get a list of approved users
      *         for a specific role, useful for transfer operations
      * @param _role The role to filter by (e.g., "Factory", "Retailer", "Consumer")
+     * @param _offset Starting index for pagination (0-based)
+     * @param _limit Maximum number of results to return (max 100)
      * @return addresses Array of addresses of approved users with the specified role
+     * @return totalCount Total number of approved users with the specified role
      */
-    function getApprovedUsersByRole(string memory _role) 
+    function getApprovedUsersByRole(
+        string memory _role,
+        uint256 _offset,
+        uint256 _limit
+    ) 
         public 
         view 
         onlyApprovedUser 
-        returns (address[] memory) 
+        returns (address[] memory addresses, uint256 totalCount) 
     {
         require(validRoles[_role], "Invalid role");
+        require(_limit > 0 && _limit <= MAX_USERS_PER_QUERY, "Invalid limit");
         
         // Count approved users with the specified role
         uint256 count = 0;
@@ -257,24 +336,46 @@ contract SupplyChainTracker {
             }
         }
         
-        // Create array with exact size
-        address[] memory result = new address[](count);
-        uint256 index = 0;
+        totalCount = count;
         
-        // Populate array
-        for (uint256 i = 0; i < userAddresses.length; i++) {
+        // Calculate actual result size
+        uint256 resultSize = _offset < count ? (count - _offset < _limit ? count - _offset : _limit) : 0;
+        addresses = new address[](resultSize);
+        uint256 index = 0;
+        uint256 currentIndex = 0;
+        
+        // Populate array with pagination
+        for (uint256 i = 0; i < userAddresses.length && index < resultSize; i++) {
             address userAddr = userAddresses[i];
             if (
                 users[userAddr].id != 0 &&
                 users[userAddr].status == UserStatus.Approved &&
                 keccak256(bytes(users[userAddr].role)) == keccak256(bytes(_role))
             ) {
-                result[index] = userAddr;
-                index++;
+                if (currentIndex >= _offset) {
+                    addresses[index] = userAddr;
+                    index++;
+                }
+                currentIndex++;
             }
         }
         
-        return result;
+        return (addresses, totalCount);
+    }
+    
+    /**
+     * @dev Get approved users by role (backward compatibility - returns first 100)
+     * @param _role The role to filter by
+     * @return addresses Array of addresses of approved users with the specified role
+     */
+    function getApprovedUsersByRole(string memory _role) 
+        public 
+        view 
+        onlyApprovedUser 
+        returns (address[] memory) 
+    {
+        (address[] memory addresses, ) = getApprovedUsersByRole(_role, 0, MAX_USERS_PER_QUERY);
+        return addresses;
     }
     
     // ==================== ProductToken Functions ====================
@@ -293,9 +394,13 @@ contract SupplyChainTracker {
     ) 
         public 
         onlyApprovedUser
+        whenNotPaused
         returns (uint256) 
     {
         require(_amount > 0, "Amount must be greater than 0");
+        require(_amount <= MAX_AMOUNT, "Amount too large");
+        require(bytes(_metadata).length > 0, "Metadata cannot be empty");
+        require(bytes(_metadata).length <= MAX_METADATA_LENGTH, "Metadata too long");
         
         // If parentId is provided, validate it exists and user has balance
         if (_parentId > 0) {
@@ -393,6 +498,7 @@ contract SupplyChainTracker {
     )
         public
         onlyApprovedUser
+        whenNotPaused
         returns (uint256)
     {
         require(keccak256(bytes(users[msg.sender].role)) != keccak256(bytes("Consumer")), "Consumer cannot transfer");
@@ -401,6 +507,7 @@ contract SupplyChainTracker {
         require(_to != address(0), "Invalid destination address");
         require(_to != msg.sender, "Cannot transfer to yourself");
         require(_amount > 0, "Amount must be greater than 0");
+        require(_amount <= MAX_AMOUNT, "Amount too large");
         require(balances[_tokenId][msg.sender] >= _amount, "Insufficient balance");
         require(users[_to].id != 0, "Destination user does not exist");
         require(users[_to].status == UserStatus.Approved, "Destination user not approved");
@@ -437,7 +544,7 @@ contract SupplyChainTracker {
      * @dev Accept a transfer request (Only destination address)
      * @param _transferId Transfer ID to accept
      */
-    function acceptTransfer(uint256 _transferId) public {
+    function acceptTransfer(uint256 _transferId) public whenNotPaused {
         Transfer storage transfer = transfers[_transferId];
         require(transfer.id != 0, "Transfer does not exist");
         require(transfer.to == msg.sender, "Only destination can accept");
@@ -466,7 +573,7 @@ contract SupplyChainTracker {
      * @dev Reject a transfer request (Only destination address)
      * @param _transferId Transfer ID to reject
      */
-    function rejectTransfer(uint256 _transferId) public {
+    function rejectTransfer(uint256 _transferId) public whenNotPaused {
         Transfer storage transfer = transfers[_transferId];
         require(transfer.id != 0, "Transfer does not exist");
         require(transfer.to == msg.sender, "Only destination can reject");
@@ -499,11 +606,20 @@ contract SupplyChainTracker {
     }
     
     /**
-     * @dev Get all pending transfers for an address
+     * @dev Get all pending transfers for an address (with pagination)
      * @param _address Address to get pending transfers for
-     * @return Array of transfer IDs that are still pending
+     * @param _offset Starting index for pagination (0-based)
+     * @param _limit Maximum number of results to return (max 100)
+     * @return resultTransferIds Array of transfer IDs that are still pending
+     * @return totalCount Total number of pending transfers for the address
      */
-    function getPendingTransfers(address _address) public view returns (uint256[] memory) {
+    function getPendingTransfers(
+        address _address,
+        uint256 _offset,
+        uint256 _limit
+    ) public view returns (uint256[] memory resultTransferIds, uint256 totalCount) {
+        require(_limit > 0 && _limit <= MAX_TRANSFERS_PER_QUERY, "Invalid limit");
+        
         uint256[] memory allTransfers = pendingTransfersByAddress[_address];
         uint256[] memory temp = new uint256[](allTransfers.length);
         uint256 count = 0;
@@ -516,22 +632,68 @@ contract SupplyChainTracker {
             }
         }
         
-        // Create result array with exact size
-        uint256[] memory result = new uint256[](count);
-        for (uint256 i = 0; i < count; i++) {
-            result[i] = temp[i];
+        totalCount = count;
+        
+        // Calculate actual result size with pagination
+        uint256 resultSize = _offset < count ? (count - _offset < _limit ? count - _offset : _limit) : 0;
+        resultTransferIds = new uint256[](resultSize);
+        
+        // Populate result array with pagination
+        for (uint256 i = 0; i < resultSize; i++) {
+            resultTransferIds[i] = temp[_offset + i];
         }
         
-        return result;
+        return (resultTransferIds, totalCount);
     }
     
     /**
-     * @dev Get transaction chain history for a product token
+     * @dev Get all pending transfers for an address (backward compatibility - returns first 100)
+     * @param _address Address to get pending transfers for
+     * @return Array of transfer IDs that are still pending
+     */
+    function getPendingTransfers(address _address) public view returns (uint256[] memory) {
+        (uint256[] memory resultTransferIds, ) = getPendingTransfers(_address, 0, MAX_TRANSFERS_PER_QUERY);
+        return resultTransferIds;
+    }
+    
+    /**
+     * @dev Get transaction chain history for a product token (with pagination)
+     * @param _tokenId Token ID
+     * @param _offset Starting index for pagination (0-based)
+     * @param _limit Maximum number of results to return (max 100)
+     * @return resultTransferIds Array of transfer IDs representing the transaction history
+     * @return totalCount Total number of transfers in history
+     */
+    function getTokenTransactionHistory(
+        uint256 _tokenId,
+        uint256 _offset,
+        uint256 _limit
+    ) public view returns (uint256[] memory resultTransferIds, uint256 totalCount) {
+        require(_limit > 0 && _limit <= MAX_TRANSFERS_PER_QUERY, "Invalid limit");
+        
+        uint256[] memory allHistory = tokenTransactionHistory[_tokenId];
+        totalCount = allHistory.length;
+        
+        // Calculate actual result size with pagination
+        uint256 resultSize = _offset < totalCount ? (totalCount - _offset < _limit ? totalCount - _offset : _limit) : 0;
+        resultTransferIds = new uint256[](resultSize);
+        
+        // Populate result array with pagination
+        for (uint256 i = 0; i < resultSize; i++) {
+            resultTransferIds[i] = allHistory[_offset + i];
+        }
+        
+        return (resultTransferIds, totalCount);
+    }
+    
+    /**
+     * @dev Get transaction chain history for a product token (backward compatibility - returns first 100)
      * @param _tokenId Token ID
      * @return Array of transfer IDs representing the transaction history
      */
     function getTokenTransactionHistory(uint256 _tokenId) public view returns (uint256[] memory) {
-        return tokenTransactionHistory[_tokenId];
+        (uint256[] memory resultTransferIds, ) = getTokenTransactionHistory(_tokenId, 0, MAX_TRANSFERS_PER_QUERY);
+        return resultTransferIds;
     }
     
     /**

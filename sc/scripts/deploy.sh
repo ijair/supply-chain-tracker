@@ -127,18 +127,39 @@ deploy_contract() {
     
     # Deploy using forge script
     print_status "Running forge script..."
+    # Use -vv instead of -vvv to avoid terminal-related errors in non-interactive mode
+    # Also use --legacy flag if needed for compatibility
     DEPLOY_OUTPUT=$(forge script script/Deploy.s.sol \
         --rpc-url "$RPC_URL" \
         --broadcast \
         --private-key "$USER0_PRIVATE_KEY" \
-        -vvv 2>&1)
+        -vv 2>&1 || true)
     
-    DEPLOY_EXIT_CODE=$?
-    
-    if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
-        print_error "Forge script failed with exit code $DEPLOY_EXIT_CODE"
-        echo "$DEPLOY_OUTPUT"
-        exit 1
+    # Check if deployment actually succeeded by looking for the contract address in output
+    if echo "$DEPLOY_OUTPUT" | grep -q "Script ran successfully"; then
+        print_status "Forge script executed successfully"
+    else
+        # Check for contract size errors
+        if echo "$DEPLOY_OUTPUT" | grep -qi "contract size limit"; then
+            print_error "Contract size limit exceeded!"
+            print_error "The contract is too large. Please enable optimizer or reduce contract size."
+            echo ""
+            print_error "Deployment output:"
+            echo "$DEPLOY_OUTPUT"
+            exit 1
+        fi
+        
+        # Check for other errors
+        if echo "$DEPLOY_OUTPUT" | grep -qi "Error\|Failed\|Reverted"; then
+            print_error "Forge script encountered errors"
+            echo ""
+            print_error "Deployment output:"
+            echo "$DEPLOY_OUTPUT"
+            exit 1
+        fi
+        
+        # If we can't determine success/failure, continue and try to extract address
+        print_warning "Could not determine deployment status from output, continuing..."
     fi
     
     # Wait a moment for the transaction to be mined
@@ -156,9 +177,19 @@ deploy_contract() {
     # Fallback: Try to extract from deployment output
     if [ -z "$CONTRACT_ADDRESS" ] || [ "$CONTRACT_ADDRESS" == "null" ]; then
         print_warning "Could not extract address from broadcast log, trying output..."
-        CONTRACT_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -i "deployed" | grep -oP '0x[a-fA-F0-9]{40}' | head -1 || \
-                          echo "$DEPLOY_OUTPUT" | grep -i "contract" | grep -oP '0x[a-fA-F0-9]{40}' | head -1 || \
-                          echo "")
+        # Try multiple patterns to extract contract address
+        # Pattern 1: "Return" section (e.g., "0: contract SupplyChainTracker 0x...")
+        CONTRACT_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -E "Return|contract.*0x[a-fA-F0-9]{40}" | grep -oE '0x[a-fA-F0-9]{40}' | head -1)
+        
+        # Pattern 2: "deployed" keyword
+        if [ -z "$CONTRACT_ADDRESS" ] || [ "$CONTRACT_ADDRESS" == "null" ]; then
+            CONTRACT_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -i "deployed" | grep -oE '0x[a-fA-F0-9]{40}' | head -1)
+        fi
+        
+        # Pattern 3: Generic contract address
+        if [ -z "$CONTRACT_ADDRESS" ] || [ "$CONTRACT_ADDRESS" == "null" ]; then
+            CONTRACT_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -i "contract" | grep -oE '0x[a-fA-F0-9]{40}' | head -1)
+        fi
     fi
     
     if [ -z "$CONTRACT_ADDRESS" ] || [ "$CONTRACT_ADDRESS" == "null" ] || [ "$CONTRACT_ADDRESS" == "" ]; then

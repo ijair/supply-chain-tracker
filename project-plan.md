@@ -210,4 +210,10 @@ for better understanding, how is the token workflow we will use an example.
 - implement header component to wrap the page title and wallet connection elements.
 - header colors will depend on the user role, admin red, factory green, retailer blue, consumer purple. implement theme color based on user role.
 
+#11 security test ✅
+- try to break the site and find vulnerabilities, create a report with the vulnerabilities found
+- fix vulnerabilities according to the report.
+
+#12 System Documentation ✅
+- update project documentation
 
