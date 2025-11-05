@@ -48,26 +48,78 @@ export default function AdminUsers() {
         provider
       );
       
-      // Get total number of users
-      const totalUsers = Number(await contract.getTotalUsers());
+      // Get total number of users first to know how many to fetch
+      let totalUsers = 0;
+      try {
+        totalUsers = Number(await contract.getTotalUsers());
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn("Could not get totalUsers, will iterate until error:", error);
+        }
+      }
       
-      // Get user addresses by calling the array getter
+      // Get user addresses by iterating through the userAddresses array
+      // We iterate up to totalUsers, but also handle errors in case totalUsers is out of sync
       const addresses: string[] = [];
-      for (let i = 0; i < totalUsers; i++) {
+      const maxAttempts = Math.max(totalUsers, 100); // Use totalUsers or 100, whichever is larger
+      
+      for (let i = 0; i < maxAttempts; i++) {
         try {
           const address = await contract.userAddresses(i);
-          addresses.push(address);
-        } catch (error) {
+          // Check if address is valid (not zero address)
+          if (address && address !== ethers.ZeroAddress && address.toLowerCase() !== ethers.ZeroAddress.toLowerCase()) {
+            addresses.push(address);
+          } else {
+            // Zero address indicates empty slot - this shouldn't happen in normal operation
+            // but we'll break to avoid infinite loops
+            if (process.env.NODE_ENV === 'development') {
+              console.warn(`Found zero address at index ${i}, stopping iteration`);
+            }
+            break;
+          }
+        } catch (error: any) {
+          // If we get a revert or out of bounds, we've reached the end of the array
+          const errorMessage = error.message || error.reason || String(error);
+          const errorCode = error.code || '';
+          
+          if (
+            errorCode === 'CALL_EXCEPTION' || 
+            errorMessage.includes('out of bounds') ||
+            errorMessage.includes('execution reverted') ||
+            errorCode === 'UNPREDICTABLE_GAS_LIMIT' ||
+            (errorMessage.includes('revert') && i >= totalUsers)
+          ) {
+            // Reached the end of the array
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`Reached end of userAddresses array at index ${i}`);
+            }
+            break;
+          }
           if (process.env.NODE_ENV === 'development') {
-            console.error(`Error fetching user address at index ${i}:`, error);
+            console.warn(`Error fetching user address at index ${i}:`, error);
+          }
+          // If we've tried beyond totalUsers and still getting errors, stop
+          if (i >= totalUsers + 10) {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn(`Stopping iteration after ${i} attempts (totalUsers was ${totalUsers})`);
+            }
+            break;
           }
         }
+      }
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Loaded ${addresses.length} user addresses (totalUsers: ${totalUsers})`);
       }
       
       // Get user details for each address
       const userPromises = addresses.map(async (address: string) => {
         try {
           const userData = await contract.getUser(address);
+          // Only include users that have been registered (id != 0)
+          if (Number(userData.id) === 0) {
+            return null;
+          }
           return {
             id: Number(userData.id),
             userAddress: userData.userAddress,
@@ -107,6 +159,14 @@ export default function AdminUsers() {
     }
 
     loadUsers();
+    
+    // Set up polling to refresh users every 5 seconds
+    // This ensures new registrations appear even if events aren't being listened to
+    const interval = setInterval(() => {
+      loadUsers();
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, [isConnected, isApproved, user, loadUsers, router]);
 
   const updateUserStatus = async (userAddress: string, newStatus: UserStatus) => {
@@ -176,11 +236,20 @@ export default function AdminUsers() {
             label: "Back to Dashboard"
           }}
           actionButtons={
-            <Link href="/admin/tests">
-              <Button variant="outline">
-                🧪 Automated Tests
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => loadUsers()}
+                disabled={loading}
+              >
+                {loading ? "Loading..." : "🔄 Refresh"}
               </Button>
-            </Link>
+              <Link href="/admin/tests">
+                <Button variant="outline">
+                  🧪 Automated Tests
+                </Button>
+              </Link>
+            </div>
           }
         />
 

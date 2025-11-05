@@ -4,7 +4,7 @@
 import abi from './abi.json';
 
 export const contractConfig = {
-  address: "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0" as const,
+  address: "0x5fbdb2315678afecb367f032d93f642f64180aa3" as const,
   abi: abi,
   network: {
     name: "anvil" as const,
@@ -16,7 +16,7 @@ export const contractConfig = {
 export const CONTRACT_ABI_PATH = "./SupplyChainTracker.json";
 
 // Export contract address for convenience
-export const CONTRACT_ADDRESS = "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0" as const;
+export const CONTRACT_ADDRESS = "0x5fbdb2315678afecb367f032d93f642f64180aa3" as const;
 
 // Export ABI separately for convenience
 export { abi };
