@@ -197,5 +197,17 @@ for better understanding, how is the token workflow we will use an example.
 
 
 
-# 9. Log errors found during AI sessions.
+# 9. Log errors found during AI sessions.✅
 * read and analyze files in ./ai-chats/*, detect issues during session and enum them below point 3 in the ./AI.md
+
+#10. General Adjustments.
+##10.1 Admin dashboard
+- Admin should not create tokens so remove my tokens an Create token options form the admin panel
+- leave transfer option.
+##10.1.1 Admin transfer
+- on the transfer page for admin allow admin to see all transfer in any stage and enable a history view for the transfers
+##10.2 General Layout
+- implement header component to wrap the page title and wallet connection elements.
+- header colors will depend on the user role, admin red, factory green, retailer blue, consumer purple. implement theme color based on user role.
+
+

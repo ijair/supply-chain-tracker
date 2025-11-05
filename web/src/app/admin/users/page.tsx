@@ -12,6 +12,7 @@ import { contractConfig } from "@/contracts/config";
 import { toast } from "sonner";
 import Link from "next/link";
 import { getStatusColor, getStatusText } from "@/lib/utils";
+import { Header } from "@/components/Header";
 
 interface User {
   id: number;
@@ -167,30 +168,21 @@ export default function AdminUsers() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <main className="container mx-auto py-8 px-4 max-w-6xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <div className="flex gap-2 mb-4">
-              <Link href="/dashboard">
-                <Button variant="ghost">
-                  ← Back to Dashboard
-                </Button>
-              </Link>
-              <Link href="/admin/tests">
-                <Button variant="outline">
-                  🧪 Automated Tests
-                </Button>
-              </Link>
-            </div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-              User Management
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Moderate user registration requests and manage user accounts
-            </p>
-          </div>
-          <Badge className="bg-red-500">Admin</Badge>
-        </div>
+        <Header
+          title="User Management"
+          description="Moderate user registration requests and manage user accounts"
+          backButton={{
+            href: "/dashboard",
+            label: "Back to Dashboard"
+          }}
+          actionButtons={
+            <Link href="/admin/tests">
+              <Button variant="outline">
+                🧪 Automated Tests
+              </Button>
+            </Link>
+          }
+        />
 
         {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

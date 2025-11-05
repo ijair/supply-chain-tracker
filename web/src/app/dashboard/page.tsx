@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
 import { formatAddress } from "@/lib/utils";
+import { Header } from "@/components/Header";
 
 export default function Dashboard() {
   const { 
@@ -42,7 +43,7 @@ export default function Dashboard() {
       case "Factory":
         return "bg-green-500";
       case "Retailer":
-        return "bg-yellow-500";
+        return "bg-blue-500";
       case "Consumer":
         return "bg-purple-500";
       default:
@@ -61,25 +62,15 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <main className="container mx-auto py-8 px-4 max-w-6xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Dashboard
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Welcome to your Supply Chain Tracker dashboard
-            </p>
-          </div>
-          <div className="flex gap-2">
+        <Header
+          title="Dashboard"
+          description="Welcome to your Supply Chain Tracker dashboard"
+          actionButtons={
             <Button asChild variant="outline">
               <Link href="/profile">Profile</Link>
             </Button>
-            <Button onClick={disconnectWallet} variant="outline">
-              Disconnect
-            </Button>
-          </div>
-        </div>
+          }
+        />
 
         {/* User Info Card */}
         <Card className="mb-8 cursor-pointer hover:shadow-lg transition-shadow">
@@ -165,31 +156,35 @@ export default function Dashboard() {
             </Link>
           </Card>
           
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-            <Link href="/token">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  🪙 My Tokens
-                </CardTitle>
-                <CardDescription>
-                  View and manage your product tokens
-                </CardDescription>
-              </CardHeader>
-            </Link>
-          </Card>
-          
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-            <Link href="/token/create">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  ➕ Create Token
-                </CardTitle>
-                <CardDescription>
-                  Create a new product token
-                </CardDescription>
-              </CardHeader>
-            </Link>
-          </Card>
+          {!isAdmin && (
+            <>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                <Link href="/token">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      🪙 My Tokens
+                    </CardTitle>
+                    <CardDescription>
+                      View and manage your product tokens
+                    </CardDescription>
+                  </CardHeader>
+                </Link>
+              </Card>
+              
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                <Link href="/token/create">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      ➕ Create Token
+                    </CardTitle>
+                    <CardDescription>
+                      Create a new product token
+                    </CardDescription>
+                  </CardHeader>
+                </Link>
+              </Card>
+            </>
+          )}
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <Link href="/transfers">

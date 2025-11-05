@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Header } from "@/components/Header";
 
 export default function ProfilePage() {
   const { 
@@ -40,7 +41,7 @@ export default function ProfilePage() {
       case "Factory":
         return "bg-green-500";
       case "Retailer":
-        return "bg-yellow-500";
+        return "bg-blue-500";
       case "Consumer":
         return "bg-purple-500";
       default:
@@ -121,32 +122,21 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <main className="container mx-auto py-8 px-4 max-w-4xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex-1">
-            <div className="flex gap-2 mb-4">
-              <Button asChild variant="ghost">
-                <Link href="/dashboard">
-                  ← Back to Dashboard
-                </Link>
+        <Header
+          title="Profile"
+          description="Your account information and details"
+          backButton={{
+            href: "/dashboard",
+            label: "Back to Dashboard"
+          }}
+          actionButtons={
+            <>
+              <Button onClick={refreshUserData} variant="outline">
+                Refresh
               </Button>
-            </div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Profile
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Your account information and details
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={refreshUserData} variant="outline">
-              Refresh
-            </Button>
-            <Button onClick={disconnectWallet} variant="outline">
-              Disconnect
-            </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {/* User Information Card */}
         <Card className="mb-6">
