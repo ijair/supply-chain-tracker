@@ -6,6 +6,123 @@
 
 # 3. Errors Report
 
+## 3.1. Issues Found During Task 3 (After User Registration Implementation)
+
+### Issue 1: Chain ID Mismatch
+- **Problem**: Frontend was showing a chain ID that didn't match the configured Anvil local network (should be 31337)
+- **Location**: `web/src/contexts/Web3Context.tsx`
+- **Root Cause**: Chain ID handling not properly configured for Anvil's default chain ID
+- **Fix**: Updated chain ID handling to correctly detect and display Anvil's chain ID (31337)
+
+### Issue 2: Missing Dashboard and Admin Pages
+- **Problem**: Dashboard and admin moderation pages were not created as specified in the project plan
+- **Location**: `web/src/app/dashboard/page.tsx`, `web/src/app/admin/users/page.tsx`
+- **Root Cause**: Pages were not implemented during initial task completion
+- **Fix**: Created dashboard page with role-based statistics and quick actions, and admin user management page for registration moderation
+
+### Issue 3: Admin Registration Flow Issue
+- **Problem**: Admin users (specifically user0 from Anvil: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`) were being asked to register, when admins should be auto-registered during contract deployment
+- **Location**: `web/src/app/page.tsx`, `sc/script/Deploy.s.sol`
+- **Root Cause**: Frontend registration check didn't account for pre-registered admin users from deployment
+- **Fix**: Updated registration flow to check if user is already registered (including admins registered during deployment) before showing registration form
+
+### Issue 4: Frontend-Backend Integration in User Registration
+- **Problem**: User registration form not properly integrated with smart contract backend
+- **Location**: `web/src/components/UserRegistrationForm.tsx`
+- **Root Cause**: Missing or incorrect contract interaction in registration submission
+- **Fix**: Integrated form submission with smart contract `registerUser()` function, added proper error handling and transaction feedback
+
+### Issue 5: Missing Admin User Management Page
+- **Problem**: Admin user management page for moderating registration requests was not created
+- **Location**: `web/src/app/admin/users/page.tsx`
+- **Root Cause**: Page not implemented during initial development
+- **Fix**: Created comprehensive admin page with user list, status management (approve/reject), and user filtering capabilities
+
+### Issue 6: Non-functional "Change Wallet" Button
+- **Problem**: "Change wallet" button was not functioning
+- **Location**: `web/src/app/page.tsx` (or similar)
+- **Root Cause**: Button implementation was incomplete or missing functionality
+- **Fix**: Removed the non-functional button as requested
+
+## 3.2. Issues Found During Deployment and Configuration
+
+### Issue 7: Contract Address Mismatch in Deploy Script
+- **Problem**: Deploy script was extracting and writing the wrong contract address to frontend config
+- **Location**: `sc/scripts/deploy.sh`
+- **Root Cause**: `find broadcast -name "run-latest.json"` command was too broad and returned incorrect file
+- **Fix**: Updated deploy script to use more specific path: `find broadcast/Deploy.s.sol -name "run-latest.json"` and added fallback extraction methods
+
+### Issue 8: Admin Dashboard Access Issue
+- **Problem**: Admin user (`0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`) could not access admin dashboard, still seeing registration button
+- **Location**: `web/src/contexts/Web3Context.tsx`, `web/src/app/page.tsx`
+- **Root Cause**: User data refresh not properly detecting existing admin users registered during deployment
+- **Fix**: Fixed `refreshUserData()` function to properly fetch and recognize admin users, updated registration flow to check existing registration status before showing form
+
+### Issue 9: Users Don't Have ETH
+- **Problem**: Registered users don't have ETH in their wallets for transactions
+- **Location**: General testing flow
+- **Root Cause**: Anvil test accounts need to be funded for testing transactions
+- **Fix**: Created faucet script (`sc/scripts/faucet.sh`) to send test ETH to MetaMask wallets on local Anvil network
+
+## 3.3. Issues Found During Performance Optimization (Point 7)
+
+### Issue 10: Missing React useEffect Dependencies
+- **Problem**: Missing dependencies in useEffect hooks causing unnecessary re-renders and potential stale closures
+- **Location**: `web/src/app/admin/users/page.tsx`
+- **Root Cause**: `loadUsers` function missing from useEffect dependency array
+- **Fix**: Wrapped `loadUsers` in `useCallback` with proper dependencies `[provider]`, and added all dependencies to useEffect: `[isConnected, isApproved, user, loadUsers, router]`
+
+### Issue 11: Console.error Statements in Production
+- **Problem**: All `console.error()` calls executed in production builds, polluting browser console
+- **Location**: `web/src/contexts/Web3Context.tsx` (6 instances), `web/src/app/admin/users/page.tsx` (3 instances)
+- **Root Cause**: No environment checks before logging errors
+- **Fix**: Wrapped all console.error calls with `process.env.NODE_ENV === 'development'` guard to prevent production logging
+
+### Issue 12: Duplicate Helper Functions
+- **Problem**: Helper functions (`getStatusColor()`, `getStatusText()`, `formatAddress()`) duplicated across multiple components (~150 lines of duplicate code)
+- **Location**: `web/src/app/page.tsx`, `web/src/app/admin/users/page.tsx`, `web/src/app/dashboard/page.tsx`
+- **Root Cause**: Functions copied to each component instead of being centralized
+- **Fix**: Created centralized utility functions in `web/src/lib/utils.ts` and removed duplicates from all components
+
+### Issue 13: Duplicate Error Handling Code
+- **Problem**: Redundant error condition checks in `updateUserStatus()` function
+- **Location**: `web/src/app/admin/users/page.tsx`
+- **Root Cause**: Separate checks for `error.reason` and `error.message` with same logic
+- **Fix**: Consolidated into single check: `(error.reason && error.reason.includes("Status unchanged")) || (error.message && error.message.includes("Status unchanged"))`
+
+### Issue 14: Unused Variables
+- **Problem**: Unused `connectWallet` variable imported but never used
+- **Location**: `web/src/app/dashboard/page.tsx`
+- **Root Cause**: Variable imported but not needed in component
+- **Fix**: Removed unused import
+
+## 3.4. Issues Found During Testing Implementation (Point 8)
+
+### Issue 15: Automated Test Flow Role Issue
+- **Problem**: Automated test flow tests failed because tests were running with admin role instead of producer role needed for token flow
+- **Location**: `web/src/app/admin/tests/page.tsx`
+- **Root Cause**: Test flow was using the actual connected user (admin) instead of simulating different roles for the complete supply chain flow
+- **Fix**: Updated test implementation to simulate the flow using admin account to verify contract functions, or use test accounts for full flow simulation (note: full flow requires funding test accounts)
+
+## 3.5. Smart Contract Performance Issues
+
+### Issue 16: getPendingTransfers() Returns All Transfers
+- **Problem**: `getPendingTransfers()` function returned all transfers for an address regardless of status (Pending, Accepted, Rejected), requiring frontend filtering
+- **Location**: `sc/src/SupplyChainTracker.sol`
+- **Root Cause**: Function returned entire array without filtering by status
+- **Fix**: Optimized function to filter and return only pending transfers, reducing frontend filtering overhead and data transfer
+
+## 3.6. Summary Statistics
+
+- **Total Issues Found**: 16
+- **Critical Issues**: 3 (Admin access, Contract address mismatch, Missing pages)
+- **Performance Issues**: 5 (React hooks, console errors, duplicate code)
+- **Configuration Issues**: 3 (Chain ID, Contract address, ETH funding)
+- **Integration Issues**: 2 (Frontend-backend, Test flow)
+- **Code Quality Issues**: 3 (Unused variables, Duplicate code, Error handling)
+
+All issues have been resolved and documented in the respective AI chat sessions.
+
 # 4. AI chats files
     - path: ./ai-chats/*
 

@@ -142,12 +142,12 @@ for better understanding, how is the token workflow we will use an example.
 * display user information on this page
 
 
-# 7. Performance check and clean up
+# 7. Performance check and clean up ✅
 * Check contract performance and standards
 * Do a performance check on the frontend
 * Clean up code, remove dead code. 
 
-# 8. Tests
+# 8. Tests ✅
 * check contract actual tests, do the tests cover all the functionality.
 * list of functionality for test coverage:
 - User register
@@ -191,11 +191,11 @@ for better understanding, how is the token workflow we will use an example.
 * create frontend automate test just accessible for for admin to run, test user flow( user connect -> user select role -> user send role request -> admin check(approved/rejected) ->user access) 
 * create frontend automate test just accessible for for admin to run, test token flow( Producer create token -> producer request transfer -> factory approval -> factory create derived product token -> factory create transfer request to retailer -> retailer approval -> retailer create request for costumer ->costumer approval) ->user access)
 * create te configuration for the frontend tests.
-## 8.1 Frontend token workflow
+## 8.1 Frontend token workflow ✅
 * generate json files for backend endpoints responses evolve on the token flow to simulate test on the frontend. put the json file simulated responses on ./web/src/app/tests/responses/**.json
 * complete test flow on ./web/src/app/tests/page.tsx comments and integrate it using the json files generated on ./web/src/app/tests/responses/
 
 
 
 # 9. Log errors found during AI sessions.
-* read and analyze files in ./ai-chats/*, detect issues during session and write them below point 3 in the ./AI.md
+* read and analyze files in ./ai-chats/*, detect issues during session and enum them below point 3 in the ./AI.md
