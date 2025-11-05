@@ -123,7 +123,14 @@ export default function ProfilePage() {
       <main className="container mx-auto py-8 px-4 max-w-4xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div>
+          <div className="flex-1">
+            <div className="flex gap-2 mb-4">
+              <Button asChild variant="ghost">
+                <Link href="/dashboard">
+                  ← Back to Dashboard
+                </Link>
+              </Button>
+            </div>
             <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
               Profile
             </h1>
@@ -281,12 +288,21 @@ export default function ProfilePage() {
                   </Button>
 
                   {user.role === "Admin" && (
-                    <Button asChild variant="outline" className="h-auto py-4">
-                      <Link href="/admin/users" className="flex flex-col items-start">
-                        <span className="font-semibold">User Management</span>
-                        <span className="text-sm text-muted-foreground">Admin panel</span>
-                      </Link>
-                    </Button>
+                    <>
+                      <Button asChild variant="outline" className="h-auto py-4">
+                        <Link href="/admin/users" className="flex flex-col items-start">
+                          <span className="font-semibold">User Management</span>
+                          <span className="text-sm text-muted-foreground">Admin panel</span>
+                        </Link>
+                      </Button>
+                      
+                      <Button asChild variant="outline" className="h-auto py-4">
+                        <Link href="/admin/tests" className="flex flex-col items-start">
+                          <span className="font-semibold">🧪 Automated Tests</span>
+                          <span className="text-sm text-muted-foreground">Run system tests</span>
+                        </Link>
+                      </Button>
+                    </>
                   )}
                 </>
               )}

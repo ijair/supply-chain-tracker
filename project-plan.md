@@ -191,6 +191,9 @@ for better understanding, how is the token workflow we will use an example.
 * create frontend automate test just accessible for for admin to run, test user flow( user connect -> user select role -> user send role request -> admin check(approved/rejected) ->user access) 
 * create frontend automate test just accessible for for admin to run, test token flow( Producer create token -> producer request transfer -> factory approval -> factory create derived product token -> factory create transfer request to retailer -> retailer approval -> retailer create request for costumer ->costumer approval) ->user access)
 * create te configuration for the frontend tests.
+## 8.1 Frontend token workflow
+* generate json files for backend endpoints responses evolve on the token flow to simulate test on the frontend. put the json file simulated responses on ./web/src/app/tests/responses/**.json
+* complete test flow on ./web/src/app/tests/page.tsx comments and integrate it using the json files generated on ./web/src/app/tests/responses/
 
 
 

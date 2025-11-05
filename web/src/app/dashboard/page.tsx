@@ -123,18 +123,33 @@ export default function Dashboard() {
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {isAdmin && (
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-              <Link href="/admin/users">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    👥 User Management
-                  </CardTitle>
-                  <CardDescription>
-                    Review and moderate registration requests
-                  </CardDescription>
-                </CardHeader>
-              </Link>
-            </Card>
+            <>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                <Link href="/admin/users">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      👥 User Management
+                    </CardTitle>
+                    <CardDescription>
+                      Review and moderate registration requests
+                    </CardDescription>
+                  </CardHeader>
+                </Link>
+              </Card>
+              
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-primary">
+                <Link href="/admin/tests">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      🧪 Automated Tests
+                    </CardTitle>
+                    <CardDescription>
+                      Run automated tests for system validation
+                    </CardDescription>
+                  </CardHeader>
+                </Link>
+              </Card>
+            </>
           )}
           
           <Card className="cursor-pointer hover:shadow-lg transition-shadow">
