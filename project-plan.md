@@ -5,7 +5,7 @@
 # Requirements:
 - code and Comments all English.
 - Quality test for smart contract.
-- Frontend standarts, responsive design, use shadcn/ui components and work with them in web/src/components/ui
+- Frontend standards, responsive design, use shadcn/ui components and work with them in web/src/components/ui
 
 
 # 1. Technologies ✅

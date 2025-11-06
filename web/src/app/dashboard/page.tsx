@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { formatAddress } from "@/lib/utils";
+import { formatAddress, canUserCreateTokens } from "@/lib/utils";
 import { Header } from "@/components/Header";
+import { ethers } from "ethers";
+import { contractConfig } from "@/contracts/config";
 
 export default function Dashboard() {
   const { 
@@ -16,10 +18,33 @@ export default function Dashboard() {
     account, 
     user, 
     isApproved, 
-    disconnectWallet
+    disconnectWallet,
+    provider
   } = useWeb3();
   
   const router = useRouter();
+  const [pendingTransfersCount, setPendingTransfersCount] = useState(0);
+  const [canCreateTokens, setCanCreateTokens] = useState(false);
+
+  const loadPendingTransfersCount = useCallback(async () => {
+    if (!account || !provider || !isApproved) return;
+
+    try {
+      const contract = new ethers.Contract(
+        contractConfig.address,
+        contractConfig.abi,
+        provider
+      );
+
+      const pendingTransferIds = await contract.getPendingTransfers(account);
+      setPendingTransfersCount(pendingTransferIds.length);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error loading pending transfers count:", error);
+      }
+      setPendingTransfersCount(0);
+    }
+  }, [account, provider, isApproved]);
 
   useEffect(() => {
     // Redirect to home if not connected
@@ -33,6 +58,33 @@ export default function Dashboard() {
       router.push('/');
     }
   }, [isConnected, isApproved, router]);
+
+  const loadCanCreateTokens = useCallback(async () => {
+    if (!account || !provider || !isApproved || !user) return;
+
+    try {
+      const canCreate = await canUserCreateTokens(
+        user.role,
+        provider,
+        account,
+        contractConfig.address,
+        contractConfig.abi
+      );
+      setCanCreateTokens(canCreate);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error loading can create tokens:", error);
+      }
+      setCanCreateTokens(false);
+    }
+  }, [account, provider, isApproved, user]);
+
+  useEffect(() => {
+    if (isConnected && isApproved && account) {
+      loadPendingTransfersCount();
+      loadCanCreateTokens();
+    }
+  }, [isConnected, isApproved, account, loadPendingTransfersCount, loadCanCreateTokens]);
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -171,18 +223,20 @@ export default function Dashboard() {
                 </Link>
               </Card>
               
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-                <Link href="/token/create">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      ➕ Create Token
-                    </CardTitle>
-                    <CardDescription>
-                      Create a new product token
-                    </CardDescription>
-                  </CardHeader>
-                </Link>
-              </Card>
+              {canCreateTokens && (
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                  <Link href="/token/create">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        ➕ Create Token
+                      </CardTitle>
+                      <CardDescription>
+                        Create a new product token
+                      </CardDescription>
+                    </CardHeader>
+                  </Link>
+                </Card>
+              )}
             </>
           )}
 
@@ -191,6 +245,18 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   📤 Transfers
+                  {pendingTransfersCount > 0 && (
+                    <div className="flex items-center gap-2 ml-2">
+                      <div className="relative">
+                        <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center text-xs font-bold text-yellow-900">
+                          {pendingTransfersCount}
+                        </div>
+                      </div>
+                      <span className="text-xs font-medium text-yellow-600 dark:text-yellow-400">
+                        pending
+                      </span>
+                    </div>
+                  )}
                 </CardTitle>
                 <CardDescription>
                   View and manage transfer requests

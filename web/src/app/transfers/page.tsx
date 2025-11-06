@@ -133,7 +133,14 @@ export default function TransfersPage() {
   };
 
   const formatDate = (timestamp: number) => {
-    return new Date(Number(timestamp) * 1000).toLocaleString();
+    const date = new Date(Number(timestamp) * 1000);
+    // Format: MM/DD/YY HH:MM (compact format)
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${month}/${day}/${year} ${hours}:${minutes}`;
   };
 
   const getStatusBadge = (status: number) => {
@@ -259,10 +266,9 @@ export default function TransfersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Transfer ID</TableHead>
-                    <TableHead>Token ID</TableHead>
+                    <TableHead>ID</TableHead>
                     <TableHead>From</TableHead>
-                    <TableHead>To</TableHead>
+                    {isAdmin && <TableHead>To</TableHead>}
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Requested</TableHead>
@@ -273,20 +279,24 @@ export default function TransfersPage() {
                 <TableBody>
                   {transfers.map((transfer) => (
                     <TableRow key={transfer.id}>
-                      <TableCell className="font-medium">#{transfer.id}</TableCell>
                       <TableCell>
-                        <Link href={`/token/${transfer.tokenId}`}>
-                          <Button variant="link" className="p-0 h-auto">
-                            #{transfer.tokenId}
-                          </Button>
-                        </Link>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">Track: {transfer.id}</span>
+                          <Link href={`/token/${transfer.tokenId}`}>
+                            <Button variant="link" className="p-0 h-auto text-xs text-primary">
+                              token: {transfer.tokenId}
+                            </Button>
+                          </Link>
+                        </div>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {formatAddress(transfer.from)}
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {formatAddress(transfer.to)}
-                      </TableCell>
+                      {isAdmin && (
+                        <TableCell className="font-mono text-sm">
+                          {formatAddress(transfer.to)}
+                        </TableCell>
+                      )}
                       <TableCell className="font-semibold">{transfer.amount}</TableCell>
                       <TableCell>{getStatusBadge(transfer.status)}</TableCell>
                       <TableCell className="text-sm">

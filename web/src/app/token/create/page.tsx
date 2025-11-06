@@ -19,6 +19,7 @@ import {
   validateTokenAmount,
   MAX_INPUT_LENGTHS 
 } from "@/lib/security";
+import { canUserCreateTokens } from "@/lib/utils";
 
 interface MetadataField {
   id: string;
@@ -37,6 +38,7 @@ export default function CreateTokenPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availableTokens, setAvailableTokens] = useState<Array<{ id: number; name: string; balance: number }>>([]);
   const [loadingTokens, setLoadingTokens] = useState(true);
+  const [canCreateTokens, setCanCreateTokens] = useState<boolean | null>(null);
   const [metadataFields, setMetadataFields] = useState<MetadataField[]>([
     { id: "1", label: "name", value: "" },
     { id: "2", label: "description", value: "" },
@@ -61,8 +63,38 @@ export default function CreateTokenPage() {
       router.push('/');
       return;
     }
+    checkCanCreateTokens();
     loadAvailableTokens();
-  }, [account, isConnected, isApproved, router]);
+  }, [account, isConnected, isApproved, user, provider, router]);
+
+  const checkCanCreateTokens = async () => {
+    if (!account || !provider || !user) return;
+
+    try {
+      const canCreate = await canUserCreateTokens(
+        user.role,
+        provider,
+        account,
+        contractConfig.address,
+        contractConfig.abi
+      );
+      setCanCreateTokens(canCreate);
+      
+      // Redirect if user cannot create tokens
+      if (!canCreate) {
+        toast.error("You cannot create tokens. Factory and Retailer users must accept at least one transfer before creating tokens.");
+        router.push('/dashboard');
+        return;
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error checking if user can create tokens:", error);
+      }
+      setCanCreateTokens(false);
+      toast.error("Error verifying permissions. Redirecting to dashboard.");
+      router.push('/dashboard');
+    }
+  };
 
   const loadAvailableTokens = async () => {
     if (!account || !provider) return;
@@ -263,6 +295,26 @@ export default function CreateTokenPage() {
   };
 
   if (!isConnected || !isApproved || !user) {
+    return null;
+  }
+
+  // Show loading state while checking permissions
+  if (canCreateTokens === null) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <main className="container mx-auto py-8 px-4 max-w-2xl">
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center text-muted-foreground">Verifying permissions...</div>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  // If user cannot create tokens, don't render the form (redirect should happen)
+  if (!canCreateTokens) {
     return null;
   }
 

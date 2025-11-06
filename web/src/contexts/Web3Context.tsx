@@ -5,6 +5,7 @@ import { ethers } from 'ethers';
 import { toast } from 'sonner';
 import { contractConfig } from '@/contracts/config';
 import networkConfig from '@/contracts/network-config.json';
+import { checkContractExists, isContractNotFoundError } from '@/lib/utils';
 
 // Types
 interface User {
@@ -378,6 +379,20 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
 
         toast.success('Wallet connected successfully!');
 
+        // Verify contract exists before trying to use it
+        const contractExists = await checkContractExists(provider, contractConfig.address);
+        if (!contractExists) {
+          toast.error(
+            'Contract not deployed. Please deploy the contract first.',
+            {
+              description: 'The contract at this address does not exist. Anvil may have been restarted.',
+              duration: 10000,
+            }
+          );
+          console.error('Contract not found at address:', contractConfig.address);
+          return;
+        }
+
         // Refresh user data after state is set
         const contract = new ethers.Contract(
           contractConfig.address,
@@ -396,12 +411,30 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
           setIsRegistered(true);
           setIsApproved(userObject.status === UserStatus.Approved);
         } catch (error: any) {
-          if (!error.message || !error.message.includes("User does not exist")) {
-            console.error('Error fetching user data:', error);
+          // Check if contract doesn't exist
+          if (isContractNotFoundError(error)) {
+            toast.error(
+              'Contract not deployed. Please deploy the contract first.',
+              {
+                description: 'The contract at this address does not exist. Anvil may have been restarted.',
+                duration: 10000,
+              }
+            );
+            console.error('Contract not found at address:', contractConfig.address);
+            return;
           }
-          setUser(null);
-          setIsRegistered(false);
-          setIsApproved(false);
+          
+          // User doesn't exist error is expected for new users
+          if (error.message && error.message.includes("User does not exist")) {
+            setUser(null);
+            setIsRegistered(false);
+            setIsApproved(false);
+          } else {
+            console.error('Error fetching user data:', error);
+            setUser(null);
+            setIsRegistered(false);
+            setIsApproved(false);
+          }
         }
       }
     } catch (error: any) {
@@ -423,6 +456,23 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     if (!account || !provider) return;
 
     try {
+      // Verify contract exists before trying to use it
+      const contractExists = await checkContractExists(provider, contractConfig.address);
+      if (!contractExists) {
+        toast.error(
+          'Contract not deployed. Please deploy the contract first.',
+          {
+            description: 'The contract at this address does not exist. Anvil may have been restarted.',
+            duration: 10000,
+          }
+        );
+        console.error('Contract not found at address:', contractConfig.address);
+        setUser(null);
+        setIsRegistered(false);
+        setIsApproved(false);
+        return;
+      }
+
       const contract = new ethers.Contract(
         contractConfig.address,
         contractConfig.abi,
@@ -446,7 +496,23 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         setIsRegistered(true);
         setIsApproved(userObject.status === UserStatus.Approved);
       } catch (error: any) {
-        // User doesn't exist
+        // Check if contract doesn't exist
+        if (isContractNotFoundError(error)) {
+          toast.error(
+            'Contract not deployed. Please deploy the contract first.',
+            {
+              description: 'The contract at this address does not exist. Anvil may have been restarted.',
+              duration: 10000,
+            }
+          );
+          console.error('Contract not found at address:', contractConfig.address);
+          setUser(null);
+          setIsRegistered(false);
+          setIsApproved(false);
+          return;
+        }
+        
+        // User doesn't exist error is expected for new users
         if (error.message && error.message.includes("User does not exist")) {
           setUser(null);
           setIsRegistered(false);
@@ -455,7 +521,23 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
           throw error;
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Check if contract doesn't exist
+      if (isContractNotFoundError(error)) {
+        toast.error(
+          'Contract not deployed. Please deploy the contract first.',
+          {
+            description: 'The contract at this address does not exist. Anvil may have been restarted.',
+            duration: 10000,
+          }
+        );
+        console.error('Contract not found at address:', contractConfig.address);
+        setUser(null);
+        setIsRegistered(false);
+        setIsApproved(false);
+        return;
+      }
+      
       if (process.env.NODE_ENV === 'development') {
         console.error('Error refreshing user data:', error);
       }

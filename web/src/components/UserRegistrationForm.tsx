@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { UserStatus } from "@/contexts/Web3Context";
 import { contractConfig } from "@/contracts/config";
+import { checkContractExists, isContractNotFoundError } from "@/lib/utils";
 
 const VALID_ROLES = ["Producer", "Factory", "Retailer", "Consumer"];
 
@@ -18,7 +19,7 @@ export function FormDialog() {
   const [role, setRole] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { account, isRegistered, isConnected, refreshUserData, signer } = useWeb3();
+  const { account, isRegistered, isConnected, refreshUserData, signer, provider } = useWeb3();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +42,22 @@ export function FormDialog() {
     setIsSubmitting(true);
 
     try {
+      // Verify contract exists before trying to use it
+      if (provider) {
+        const contractExists = await checkContractExists(provider, contractConfig.address);
+        if (!contractExists) {
+          toast.error(
+            'Contract not deployed. Please deploy the contract first.',
+            {
+              description: 'The contract at this address does not exist. Anvil may have been restarted.',
+              duration: 10000,
+            }
+          );
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // Create contract instance with signer
       const contract = new ethers.Contract(
         contractConfig.address,
@@ -64,6 +81,19 @@ export function FormDialog() {
       setOpen(false);
     } catch (error: any) {
       console.error("Registration error:", error);
+      
+      // Check if contract doesn't exist
+      if (isContractNotFoundError(error)) {
+        toast.error(
+          'Contract not deployed. Please deploy the contract first.',
+          {
+            description: 'The contract at this address does not exist. Anvil may have been restarted.',
+            duration: 10000,
+          }
+        );
+        setIsSubmitting(false);
+        return;
+      }
       
       if (error.code === "ACTION_REJECTED") {
         toast.error("Transaction was rejected by user");

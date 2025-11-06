@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useWeb3 } from "@/contexts/Web3Context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { ethers } from "ethers";
 import { contractConfig } from "@/contracts/config";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { canUserCreateTokens } from "@/lib/utils";
 
 interface ProductToken {
   id: number;
@@ -32,6 +33,27 @@ export default function TokenListPage() {
   const [loading, setLoading] = useState(true);
   const [allTokenIds, setAllTokenIds] = useState<number[]>([]);
   const [activeView, setActiveView] = useState<TokenView>("created");
+  const [canCreateTokens, setCanCreateTokens] = useState(false);
+
+  const loadCanCreateTokens = useCallback(async () => {
+    if (!account || !provider || !isApproved || !user) return;
+
+    try {
+      const canCreate = await canUserCreateTokens(
+        user.role,
+        provider,
+        account,
+        contractConfig.address,
+        contractConfig.abi
+      );
+      setCanCreateTokens(canCreate);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error loading can create tokens:", error);
+      }
+      setCanCreateTokens(false);
+    }
+  }, [account, provider, isApproved, user]);
 
   useEffect(() => {
     if (!isConnected || !isApproved) {
@@ -39,7 +61,8 @@ export default function TokenListPage() {
       return;
     }
     loadTokens();
-  }, [account, isConnected, isApproved, router]);
+    loadCanCreateTokens();
+  }, [account, isConnected, isApproved, router, loadCanCreateTokens]);
 
   const loadTokens = async () => {
     if (!account || !provider) return;
@@ -167,9 +190,11 @@ export default function TokenListPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Link href="/token/create">
-              <Button>Create New Token</Button>
-            </Link>
+            {canCreateTokens && (
+              <Link href="/token/create">
+                <Button>Create New Token</Button>
+              </Link>
+            )}
             <Link href="/dashboard">
               <Button variant="outline">Back to Dashboard</Button>
             </Link>
@@ -223,7 +248,7 @@ export default function TokenListPage() {
                     ? "You haven't created any tokens yet" 
                     : "No tokens have been transferred to you yet"}
                 </p>
-                {activeView === "created" && (
+                {activeView === "created" && canCreateTokens && (
                   <Link href="/token/create">
                     <Button>Create Your First Token</Button>
                   </Link>
