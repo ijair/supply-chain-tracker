@@ -13,6 +13,7 @@ import { contractConfig } from "@/contracts/config";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { Trash2, Plus } from "lucide-react";
+import { Header } from "@/components/Header";
 import { 
   validateMetadataField, 
   validateMetadataTotal,
@@ -323,20 +324,14 @@ export default function CreateTokenPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <main className="container mx-auto py-8 px-4 max-w-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Create Product Token
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Create a new product token in the supply chain
-            </p>
-          </div>
-          <Link href="/token">
-            <Button variant="outline">Back to Tokens</Button>
-          </Link>
-        </div>
+        <Header
+          title="Create Product Token"
+          description="Create a new product token in the supply chain"
+          backButton={{
+            href: "/token",
+            label: "Back to Tokens"
+          }}
+        />
 
         <Card>
           <CardHeader>

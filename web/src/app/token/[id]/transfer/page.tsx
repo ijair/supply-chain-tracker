@@ -14,6 +14,7 @@ import { contractConfig } from "@/contracts/config";
 import { toast } from "sonner";
 import { useForm, Controller } from "react-hook-form";
 import { validateTokenAmount, validateAndSanitizeAddress } from "@/lib/security";
+import { Header } from "@/components/Header";
 
 interface AvailableUser {
   address: string;
@@ -350,20 +351,14 @@ export default function TransferTokenPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <main className="container mx-auto py-8 px-4 max-w-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Transfer Tokens
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              {tokenName} (Token ID: #{tokenId})
-            </p>
-          </div>
-          <Link href={`/token/${tokenId}`}>
-            <Button variant="outline">Back to Token</Button>
-          </Link>
-        </div>
+        <Header
+          title="Transfer Tokens"
+          description={`${tokenName} (Token ID: #${tokenId})`}
+          backButton={{
+            href: `/token/${tokenId}`,
+            label: "Back to Token"
+          }}
+        />
 
         <Card>
           <CardHeader>

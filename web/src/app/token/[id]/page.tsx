@@ -10,6 +10,8 @@ import Link from "next/link";
 import { ethers } from "ethers";
 import { contractConfig } from "@/contracts/config";
 import { toast } from "sonner";
+import { Header } from "@/components/Header";
+import { TokenMetadataDisplay } from "@/components/TokenMetadataDisplay";
 
 interface ProductToken {
   id: number;
@@ -166,30 +168,26 @@ export default function TokenDetailPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <main className="container mx-auto py-8 px-4 max-w-4xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-              {metadata.name || `Token #${token.id}`}
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Token ID: #{token.id}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {canTransfer && (
-              <Link href={`/token/${token.id}/transfer`}>
-                <Button>Transfer Tokens</Button>
+        <Header
+          title={metadata.name || `Token #${token.id}`}
+          description={`Token ID: #${token.id}`}
+          backButton={{
+            href: "/token",
+            label: "Back to Tokens"
+          }}
+          actionButtons={
+            <>
+              {canTransfer && (
+                <Link href={`/token/${token.id}/transfer`}>
+                  <Button>Transfer Tokens</Button>
+                </Link>
+              )}
+              <Link href={`/token/${token.id}/history`}>
+                <Button variant="outline">View Full History</Button>
               </Link>
-            )}
-            <Link href={`/token/${token.id}/history`}>
-              <Button variant="outline">View Full History</Button>
-            </Link>
-            <Link href="/token">
-              <Button variant="outline">Back to Tokens</Button>
-            </Link>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Info */}
@@ -250,16 +248,10 @@ export default function TokenDetailPage() {
                   </Badge>
                 </div>
 
-                {Object.keys(metadata).filter(key => !['name', 'description', 'category'].includes(key)).length > 0 && (
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground mb-2">
-                      Additional Metadata
-                    </div>
-                    <pre className="text-xs bg-muted p-3 rounded overflow-auto">
-                      {JSON.stringify(metadata, null, 2)}
-                    </pre>
-                  </div>
-                )}
+                <TokenMetadataDisplay 
+                  metadata={metadata} 
+                  excludeKeys={['name', 'description', 'category']}
+                />
               </CardContent>
             </Card>
 

@@ -10,6 +10,7 @@ import Link from "next/link";
 import { ethers } from "ethers";
 import { contractConfig } from "@/contracts/config";
 import { toast } from "sonner";
+import { Header } from "@/components/Header";
 import {
   Table,
   TableBody,
@@ -312,20 +313,14 @@ export default function TokenHistoryPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <main className="container mx-auto py-8 px-4 max-w-6xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Product History
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              {metadata.name || `Token #${token.id}`} - Complete Supply Chain Tracking
-            </p>
-          </div>
-          <Link href={`/token/${token.id}`}>
-            <Button variant="outline">Back to Token</Button>
-          </Link>
-        </div>
+        <Header
+          title="Product History"
+          description={`${metadata.name || `Token #${token.id}`} - Complete Supply Chain Tracking`}
+          backButton={{
+            href: `/token/${token.id}`,
+            label: "Back to Token"
+          }}
+        />
 
         {/* Token Info Card */}
         <Card className="mb-6">

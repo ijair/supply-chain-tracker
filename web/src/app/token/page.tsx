@@ -12,6 +12,7 @@ import { contractConfig } from "@/contracts/config";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { canUserCreateTokens } from "@/lib/utils";
+import { Header } from "@/components/Header";
 
 interface ProductToken {
   id: number;
@@ -179,27 +180,21 @@ export default function TokenListPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <main className="container mx-auto py-8 px-4 max-w-7xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Product Tokens
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Manage your product tokens and track your inventory
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {canCreateTokens && (
+        <Header
+          title="Product Tokens"
+          description="Manage your product tokens and track your inventory"
+          backButton={{
+            href: "/dashboard",
+            label: "Back to Dashboard"
+          }}
+          actionButtons={
+            canCreateTokens && (
               <Link href="/token/create">
                 <Button>Create New Token</Button>
               </Link>
-            )}
-            <Link href="/dashboard">
-              <Button variant="outline">Back to Dashboard</Button>
-            </Link>
-          </div>
-        </div>
+            )
+          }
+        />
 
         {/* View Toggle */}
         <Card className="mb-6">
