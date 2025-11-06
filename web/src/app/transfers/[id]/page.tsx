@@ -5,7 +5,7 @@ import { useWeb3 } from "@/contexts/Web3Context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ethers } from "ethers";
 import { contractConfig } from "@/contracts/config";
@@ -26,7 +26,12 @@ export default function TransferDetailPage() {
   const { account, provider, signer, isConnected, isApproved } = useWeb3();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const transferId = params.id as string;
+  
+  // Get the view mode the user came from (pending, all, or history)
+  const fromViewMode = searchParams.get("from") || "pending";
+  const backUrl = `/transfers?viewMode=${fromViewMode}`;
   
   const [transfer, setTransfer] = useState<Transfer | null>(null);
   const [tokenName, setTokenName] = useState<string>("");
@@ -91,7 +96,7 @@ export default function TransferDetailPage() {
     } catch (error) {
       console.error("Error loading transfer:", error);
       toast.error("Failed to load transfer data");
-      router.push('/transfers');
+      router.push(backUrl);
     } finally {
       setLoading(false);
     }
@@ -133,9 +138,9 @@ export default function TransferDetailPage() {
       // Refresh the page data
       await loadTransferData();
       
-      // Refresh transfers list by navigating back
+      // Refresh transfers list by navigating back to the correct view
       setTimeout(() => {
-        router.push('/transfers');
+        router.push(backUrl);
       }, 1500);
     } catch (error: any) {
       console.error("Error accepting transfer:", error);
@@ -190,9 +195,9 @@ export default function TransferDetailPage() {
       // Refresh the page data
       await loadTransferData();
       
-      // Refresh transfers list by navigating back
+      // Refresh transfers list by navigating back to the correct view
       setTimeout(() => {
-        router.push('/transfers');
+        router.push(backUrl);
       }, 1500);
     } catch (error: any) {
       console.error("Error rejecting transfer:", error);
@@ -258,7 +263,7 @@ export default function TransferDetailPage() {
             <CardContent className="py-8">
               <div className="text-center">
                 <p className="text-muted-foreground mb-4">Transfer not found</p>
-                <Link href="/transfers">
+                <Link href={backUrl}>
                   <Button>Back to Transfers</Button>
                 </Link>
               </div>
@@ -285,7 +290,7 @@ export default function TransferDetailPage() {
               {tokenName || `Token ID: #${transfer.tokenId}`}
             </p>
           </div>
-          <Link href="/transfers">
+          <Link href={backUrl}>
             <Button variant="outline">Back to Transfers</Button>
           </Link>
         </div>

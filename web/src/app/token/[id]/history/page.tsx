@@ -92,13 +92,15 @@ export default function TokenHistoryPage() {
     }
   };
 
-  // Load all transfer histories for a token chain
+  // Load all transfer histories for tokens in the ancestor chain
   const loadAllHistories = async (
     contract: ethers.Contract,
     tokenChain: ProductToken[]
   ): Promise<number[]> => {
     const allHistoryIds: number[] = [];
+    const tokenIdsInChain = new Set(tokenChain.map(token => token.id));
 
+    // Load history for each token in the ancestor chain
     for (const token of tokenChain) {
       try {
         const historyIds: bigint[] = await contract.getTokenTransactionHistory(token.id);
@@ -123,21 +125,54 @@ export default function TokenHistoryPage() {
         provider
       );
 
-      // Load complete token chain (current token + all parents)
+      // Load complete token chain (oldest ancestor first, current token last) - this is the ancestor lineage
       const chain = await loadTokenChain(contract, Number(tokenId));
       setTokenChain(chain);
 
-      // Set current token (first in chain)
-      const currentToken = chain[0];
+      // Set current token (last in chain - the token being viewed)
+      const currentToken = chain[chain.length - 1];
       setToken(currentToken);
 
-      // Load all transaction histories from the entire chain
+      // Create a set of token IDs that are in the ancestor chain
+      const tokenIdsInChain = new Set(chain.map(token => token.id));
+
+      // Load all transaction histories from tokens in the ancestor chain only
       const allHistoryIds = await loadAllHistories(contract, chain);
       
       // Load all transfer details
       const transferPromises = allHistoryIds.map(async (transferId) => {
         try {
           const transferData = await contract.getTransfer(Number(transferId));
+          
+          // CRITICAL: Only include transfers for tokens that are in the ancestor chain
+          // This ensures we don't show transfers from sibling tokens
+          const transferTokenId = Number(transferData.tokenId);
+          if (!tokenIdsInChain.has(transferTokenId)) {
+            return null;
+          }
+          
+          // For parent tokens, only show transfers that occurred before the direct child token was created
+          // This preserves chain integrity by excluding transfers that happened after branching (different paths)
+          const isCurrentToken = transferTokenId === currentToken.id;
+          if (!isCurrentToken) {
+            // This is a parent token - find its direct child in the chain
+            // Chain order: [oldest ancestor, ..., parent, current token]
+            // So for a token at index i, its child is at index i + 1
+            const tokenIndex = chain.findIndex(t => t.id === transferTokenId);
+            if (tokenIndex >= 0 && tokenIndex < chain.length - 1) {
+              // There is a child token in the chain
+              const childToken = chain[tokenIndex + 1];
+              const childCreationTime = childToken.timestamp;
+              const transferRequestTime = Number(transferData.requestTimestamp);
+              
+              // Exclude transfers that happened after the child was created - these are separate branches
+              // This ensures we only show the lineage that led to the current token
+              if (transferRequestTime > childCreationTime) {
+                // This transfer happened after the child token was created, so it's not part of this lineage
+                return null;
+              }
+            }
+          }
           
           // Get user roles for from and to addresses
           const fromUser = await contract.getUser(transferData.from);
@@ -151,7 +186,7 @@ export default function TokenHistoryPage() {
           
           return {
             id: Number(transferId),
-            tokenId: Number(transferData.tokenId),
+            tokenId: transferTokenId,
             from: transferData.from,
             to: transferData.to,
             amount: Number(transferData.amount),
@@ -170,7 +205,7 @@ export default function TokenHistoryPage() {
         (transfer): transfer is Transfer => transfer !== null
       );
 
-      // Sort by timestamp (oldest first)
+      // Sort by timestamp (oldest first) to show the chain flow
       validTransfers.sort((a, b) => a.requestTimestamp - b.requestTimestamp);
 
       setTransfers(validTransfers);

@@ -5,7 +5,7 @@ import { useWeb3 } from "@/contexts/Web3Context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ethers } from "ethers";
 import { contractConfig } from "@/contracts/config";
@@ -34,10 +34,25 @@ interface Transfer {
 export default function TransfersPage() {
   const { account, provider, isConnected, isApproved, user } = useWeb3();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"pending" | "all" | "history">("pending");
+  
+  // Get viewMode from URL params or default to "pending"
+  const urlViewMode = searchParams.get("viewMode") as "pending" | "all" | "history" | null;
+  const [viewMode, setViewMode] = useState<"pending" | "all" | "history">(
+    urlViewMode && ["pending", "all", "history"].includes(urlViewMode) 
+      ? urlViewMode 
+      : "pending"
+  );
   const isAdmin = user?.role === "Admin";
+
+  // Update viewMode when URL param changes
+  useEffect(() => {
+    if (urlViewMode && ["pending", "all", "history"].includes(urlViewMode)) {
+      setViewMode(urlViewMode);
+    }
+  }, [urlViewMode]);
 
   const loadTransfers = useCallback(async () => {
     if (!account || !provider) return;
@@ -204,21 +219,30 @@ export default function TransfersPage() {
                 <Button
                   variant={viewMode === "pending" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setViewMode("pending")}
+                  onClick={() => {
+                    setViewMode("pending");
+                    router.push("/transfers?viewMode=pending");
+                  }}
                 >
                   Pending
                 </Button>
                 <Button
                   variant={viewMode === "all" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setViewMode("all")}
+                  onClick={() => {
+                    setViewMode("all");
+                    router.push("/transfers?viewMode=all");
+                  }}
                 >
                   All Transfers
                 </Button>
                 <Button
                   variant={viewMode === "history" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setViewMode("history")}
+                  onClick={() => {
+                    setViewMode("history");
+                    router.push("/transfers?viewMode=history");
+                  }}
                 >
                   History
                 </Button>
@@ -311,7 +335,7 @@ export default function TransfersPage() {
                       )}
                       <TableCell>
                         <div className="flex gap-2">
-                          <Link href={`/transfers/${transfer.id}`}>
+                          <Link href={`/transfers/${transfer.id}?from=${viewMode}`}>
                             <Button variant="outline" size="sm">
                               {viewMode === "history" ? "View Details" : "Review"}
                             </Button>
