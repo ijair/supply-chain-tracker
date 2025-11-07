@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useWeb3 } from "@/contexts/Web3Context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +32,28 @@ interface Transfer {
 }
 
 export default function TransfersPage() {
+  return (
+    <Suspense fallback={<TransfersPageFallback />}>
+      <TransfersPageContent />
+    </Suspense>
+  );
+}
+
+function TransfersPageFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <main className="container mx-auto py-8 px-4 max-w-7xl">
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center text-muted-foreground">Loading transfers...</div>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}
+
+function TransfersPageContent() {
   const { account, provider, isConnected, isApproved, user } = useWeb3();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -353,4 +375,3 @@ export default function TransfersPage() {
     </div>
   );
 }
-

@@ -347,7 +347,7 @@ export default function AdminUsers() {
   }
 
   const pendingUsers = users.filter(u => u.status === UserStatus.Pending);
-  const allUsers = users.filter(u => u.status !== UserStatus.Canceled);
+  const allUsers = users.filter(u => u.status !== UserStatus.Pending);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
@@ -511,26 +511,7 @@ export default function AdminUsers() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {user.status === UserStatus.Pending && (
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              onClick={() => updateUserStatus(user.userAddress, UserStatus.Approved)}
-                              disabled={processing === user.userAddress}
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => updateUserStatus(user.userAddress, UserStatus.Rejected)}
-                              disabled={processing === user.userAddress}
-                            >
-                              Reject
-                            </Button>
-                          </div>
-                        )}
-                        {user.status === UserStatus.Approved && (
+                        {user.status === UserStatus.Approved ? (
                           <Button
                             size="sm"
                             variant="outline"
@@ -539,6 +520,8 @@ export default function AdminUsers() {
                           >
                             {processing === user.userAddress ? "Processing..." : "Deactivate"}
                           </Button>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                     </TableRow>

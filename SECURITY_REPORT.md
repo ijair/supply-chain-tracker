@@ -1,7 +1,7 @@
 # Security Vulnerability Report
 ## Supply Chain Tracker - Security Audit
 
-**Date:** 2024  
+**Date:** 2025  
 **Auditor:** Security Analysis  
 **Scope:** Smart Contract and Frontend Application
 
