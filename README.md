@@ -2,6 +2,9 @@
 
 Educational decentralized app to keep tracking supplies on-chain.
 
+## Project Video
+https://youtu.be/Wqzck5XrWPc
+
 ## Project Structure
 
 ```
