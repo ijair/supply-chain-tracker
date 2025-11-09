@@ -22,6 +22,14 @@ enum UserStatus {
   Canceled = 3
 }
 
+type ToastType = 'info' | 'success' | 'warning' | 'error';
+
+interface DisconnectOptions {
+  silent?: boolean;
+  toastMessage?: string;
+  toastType?: ToastType;
+}
+
 interface Web3ContextType {
   // Connection state
   isConnected: boolean;
@@ -37,7 +45,7 @@ interface Web3ContextType {
   
   // Methods
   connectWallet: () => Promise<void>;
-  disconnectWallet: () => void;
+  disconnectWallet: (options?: DisconnectOptions) => void;
   checkConnection: () => Promise<void>;
   refreshUserData: () => Promise<void>;
 }
@@ -62,7 +70,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
   const [isApproved, setIsApproved] = useState(false);
 
   // Disconnect wallet helper function (defined early to avoid forward reference)
-  const disconnectWallet = useCallback(() => {
+  const disconnectWallet = useCallback((options: DisconnectOptions = {}) => {
     setIsConnected(false);
     setAccount(null);
     setChainId(null);
@@ -76,7 +84,26 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(STORAGE_KEYS.CHAIN_ID);
     localStorage.removeItem(STORAGE_KEYS.CONNECTION_STATUS);
 
-    toast.info('Wallet disconnected');
+    if (options.silent) {
+      return;
+    }
+
+    const message = options.toastMessage ?? 'Wallet disconnected';
+
+    switch (options.toastType) {
+      case 'success':
+        toast.success(message);
+        break;
+      case 'warning':
+        toast.warning(message);
+        break;
+      case 'error':
+        toast.error(message);
+        break;
+      default:
+        toast.info(message);
+        break;
+    }
   }, []);
 
   // Add or switch to Anvil network (defined early to avoid forward reference)
@@ -274,6 +301,14 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const accounts = await provider.listAccounts();
       
+      if (accounts.length === 0) {
+        disconnectWallet({
+          toastType: 'warning',
+          toastMessage: 'MetaMask is locked or disconnected. Please reconnect your wallet.',
+        });
+        return;
+      }
+
       if (accounts.length > 0) {
         const account = accounts[0].address;
         const network = await provider.getNetwork();
@@ -336,9 +371,12 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Error checking connection:', error);
       }
-      setIsConnected(false);
+      disconnectWallet({
+        silent: true,
+      });
+      toast.error('Failed to verify wallet connection. Please reconnect.');
     }
-  }, [checkMetaMask, ensureAnvilNetwork]);
+  }, [checkMetaMask, ensureAnvilNetwork, disconnectWallet]);
 
   // Connect wallet
   const connectWallet = useCallback(async () => {

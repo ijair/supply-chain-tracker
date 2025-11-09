@@ -112,7 +112,7 @@ export default function Home() {
                       )}
                     </div>
                   )}
-                  <Button onClick={disconnectWallet} variant="outline" className="w-full">
+                  <Button onClick={() => disconnectWallet()} variant="outline" className="w-full">
                     Disconnect
                   </Button>
                 </>

@@ -84,27 +84,39 @@ export async function checkContractExists(
  */
 export function isContractNotFoundError(error: any): boolean {
   if (!error) return false;
-  
-  const errorCode = error?.code || '';
-  const errorMessage = error?.message || String(error) || '';
-  const errorReason = error?.reason || '';
-  
-  // Check for CALL_EXCEPTION with missing revert data (contract doesn't exist)
+
+  const errorCode = error?.code ?? '';
+  const errorMessage = String(error?.message ?? error ?? '').toLowerCase();
+  const errorReason = String(error?.reason ?? '').toLowerCase();
+  const errorData = String(error?.data ?? '').toLowerCase();
+
+  // Common direct indicators from various clients
+  if (
+    errorMessage.includes('contract does not exist') ||
+    errorMessage.includes('no contract at address') ||
+    errorMessage.includes('missing revert data') ||
+    errorMessage.includes('deployment has not completed') ||
+    errorData === '0x'
+  ) {
+    return true;
+  }
+
+  // Ethers v6 wraps missing-contract errors as CALL_EXCEPTION with empty data/reason
   if (errorCode === 'CALL_EXCEPTION') {
-    if (errorMessage.includes('missing revert data') || 
-        errorMessage.includes('execution reverted') ||
-        errorReason === null) {
+    const hasMeaningfulReason =
+      errorReason.length > 0 &&
+      errorReason !== 'execution reverted' &&
+      !errorReason.includes('missing revert data');
+
+    const hasReturnData =
+      (typeof error?.data === 'string' && error.data !== '0x') ||
+      (typeof error?.info?.error?.data === 'string' && error.info.error.data !== '0x');
+
+    if (!hasMeaningfulReason && !hasReturnData) {
       return true;
     }
   }
-  
-  // Check for other indicators that contract doesn't exist
-  if (errorMessage.includes('contract does not exist') ||
-      errorMessage.includes('no contract at address') ||
-      errorMessage.includes('contract creation code storage')) {
-    return true;
-  }
-  
+
   return false;
 }
 

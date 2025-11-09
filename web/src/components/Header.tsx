@@ -119,7 +119,7 @@ export function Header({ title, description, backButton, actionButtons }: Header
             )}
             {isConnected && (
               <Button 
-                onClick={disconnectWallet} 
+                onClick={() => disconnectWallet()} 
                 variant="outline" 
                 size="sm"
                 className="hidden lg:inline-flex"

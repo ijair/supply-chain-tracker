@@ -10,7 +10,6 @@ import Link from "next/link";
 import { ethers } from "ethers";
 import { contractConfig } from "@/contracts/config";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
 import { canUserCreateTokens } from "@/lib/utils";
 import { Header } from "@/components/Header";
 
@@ -145,10 +144,10 @@ export default function TokenListPage() {
   };
 
   // Filter tokens based on active view
-  const getFilteredTokens = (): ProductToken[] => {
+  const getFilteredTokens = (view: TokenView): ProductToken[] => {
     if (!account) return [];
     
-    if (activeView === "created") {
+    if (view === "created") {
       // Tokens created by the user (may have parentId)
       return allTokens.filter(
         (token) => token.creator.toLowerCase() === account.toLowerCase()
@@ -163,7 +162,16 @@ export default function TokenListPage() {
     }
   };
 
-  const filteredTokens = getFilteredTokens();
+  const canViewTransferredTokens = user?.role !== "Producer";
+
+  useEffect(() => {
+    if (!canViewTransferredTokens && activeView !== "created") {
+      setActiveView("created");
+    }
+  }, [canViewTransferredTokens, activeView]);
+
+  const selectedView: TokenView = canViewTransferredTokens ? activeView : "created";
+  const filteredTokens = getFilteredTokens(selectedView);
   const createdCount = allTokens.filter(
     (token) => token.creator.toLowerCase() === account?.toLowerCase()
   ).length;
@@ -201,7 +209,7 @@ export default function TokenListPage() {
           <CardContent className="py-4">
             <div className="flex gap-2">
               <Button
-                variant={activeView === "created" ? "default" : "outline"}
+                variant={selectedView === "created" ? "default" : "outline"}
                 onClick={() => setActiveView("created")}
                 className="flex-1"
               >
@@ -212,18 +220,20 @@ export default function TokenListPage() {
                   </Badge>
                 )}
               </Button>
-              <Button
-                variant={activeView === "transferred" ? "default" : "outline"}
-                onClick={() => setActiveView("transferred")}
-                className="flex-1"
-              >
-                Tokens Transferred to Me
-                {transferredCount > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {transferredCount}
-                  </Badge>
-                )}
-              </Button>
+              {canViewTransferredTokens && (
+                <Button
+                  variant={selectedView === "transferred" ? "default" : "outline"}
+                  onClick={() => setActiveView("transferred")}
+                  className="flex-1"
+                >
+                  Tokens Transferred to Me
+                  {transferredCount > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {transferredCount}
+                    </Badge>
+                  )}
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -239,11 +249,11 @@ export default function TokenListPage() {
             <CardContent className="py-8">
               <div className="text-center">
                 <p className="text-muted-foreground mb-4">
-                  {activeView === "created" 
+                {selectedView === "created" 
                     ? "You haven't created any tokens yet" 
                     : "No tokens have been transferred to you yet"}
                 </p>
-                {activeView === "created" && canCreateTokens && (
+                {selectedView === "created" && canCreateTokens && (
                   <Link href="/token/create">
                     <Button>Create Your First Token</Button>
                   </Link>
@@ -255,7 +265,7 @@ export default function TokenListPage() {
           <>
             <div className="mb-4">
               <p className="text-sm text-muted-foreground">
-                {activeView === "created" 
+                {selectedView === "created" 
                   ? `Showing ${filteredTokens.length} token${filteredTokens.length !== 1 ? 's' : ''} created by you`
                   : `Showing ${filteredTokens.length} token${filteredTokens.length !== 1 ? 's' : ''} transferred to you`}
               </p>
@@ -288,12 +298,12 @@ export default function TokenListPage() {
                     <div className="space-y-3">
                       <div>
                         <div className="text-sm font-medium text-muted-foreground mb-1">
-                          {activeView === "created" ? "Total Supply" : "Your Balance"}
+                          {selectedView === "created" ? "Total Supply" : "Your Balance"}
                         </div>
                         <div className="text-2xl font-bold">{balance}</div>
                       </div>
                       
-                      {token.parentId > 0 && activeView === "created" && (
+                      {token.parentId > 0 && selectedView === "created" && (
                         <div>
                           <div className="text-sm font-medium text-muted-foreground mb-1">
                             Created from Parent Token
@@ -313,7 +323,7 @@ export default function TokenListPage() {
                         <div className="text-sm">{formatDate(token.timestamp)}</div>
                       </div>
 
-                      {activeView === "transferred" && (
+                      {selectedView === "transferred" && (
                         <div>
                           <div className="text-sm font-medium text-muted-foreground mb-1">
                             Received from
@@ -321,7 +331,7 @@ export default function TokenListPage() {
                           <div className="text-sm font-mono">{formatAddress(token.creator)}</div>
                         </div>
                       )}
-                      {activeView === "created" && (
+                      {selectedView === "created" && (
                         <div>
                           <div className="text-sm font-medium text-muted-foreground mb-1">
                             Created by
