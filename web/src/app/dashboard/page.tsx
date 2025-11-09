@@ -179,6 +179,19 @@ export default function Dashboard() {
                   </CardHeader>
                 </Link>
               </Card>
+
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                <Link href="/admin/contract">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      🛡️ Contract Control
+                    </CardTitle>
+                    <CardDescription>
+                      Manage pause state and ownership
+                    </CardDescription>
+                  </CardHeader>
+                </Link>
+              </Card>
               
               <Card className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-primary">
                 <Link href="/admin/tests">

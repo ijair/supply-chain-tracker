@@ -218,7 +218,7 @@ contract SupplyChainTracker {
      * @param _role User role (Producer, Factory, Retailer, Consumer)
      * @return userId The ID of the newly registered user
      */
-    function registerUser(string memory _role) public returns (uint256) {
+    function registerUser(string memory _role) public whenNotPaused returns (uint256) {
         require(users[msg.sender].id == 0, "User already registered");
         require(validRoles[_role], "Invalid role");
         require(keccak256(bytes(_role)) != keccak256(bytes("Admin")), "Cannot register as Admin");

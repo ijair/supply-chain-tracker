@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { formatAddress } from "@/lib/utils";
-import { X, LayoutDashboard, Package, ArrowLeftRight, User, Settings } from "lucide-react";
+import { X, LayoutDashboard, Package, ArrowLeftRight, User, Settings, Shield } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 interface MobileSidebarProps {
@@ -152,6 +152,15 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                   >
                     <Settings className="h-5 w-5" />
                     User Management
+                  </Button>
+                </Link>
+                <Link href="/admin/contract" onClick={handleLinkClick}>
+                  <Button
+                    variant={pathname?.startsWith("/admin/contract") ? "default" : "ghost"}
+                    className="w-full justify-start gap-3"
+                  >
+                    <Shield className="h-5 w-5" />
+                    Contract Control
                   </Button>
                 </Link>
                 <Link href="/admin/tests" onClick={handleLinkClick}>

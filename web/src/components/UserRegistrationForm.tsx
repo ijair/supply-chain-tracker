@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { useWeb3 } from "@/contexts/Web3Context";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,53 @@ export function FormDialog() {
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isContractPaused, setIsContractPaused] = useState<boolean | null>(null);
+  const [loadingPauseState, setLoadingPauseState] = useState(false);
   
   const { account, isRegistered, isConnected, refreshUserData, signer, provider } = useWeb3();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPauseState = async () => {
+      if (!provider) {
+        if (!cancelled) {
+          setIsContractPaused(null);
+        }
+        return;
+      }
+
+      setLoadingPauseState(true);
+      try {
+        const contract = new ethers.Contract(
+          contractConfig.address,
+          contractConfig.abi,
+          provider
+        );
+        const paused = await contract.paused();
+        if (!cancelled) {
+          setIsContractPaused(Boolean(paused));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setIsContractPaused(null);
+        }
+        if (process.env.NODE_ENV === "development") {
+          console.error("Error checking pause state:", error);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingPauseState(false);
+        }
+      }
+    };
+
+    loadPauseState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [provider]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +109,14 @@ export function FormDialog() {
         contractConfig.abi,
         signer
       );
+
+      // Ensure contract is not paused before proceeding
+      const paused = await contract.paused();
+      if (paused) {
+        toast.error("Registrations are temporarily disabled while the contract is paused.");
+        setIsSubmitting(false);
+        return;
+      }
       
       // Call registerUser function
       const tx = await contract.registerUser(role);
@@ -118,7 +171,9 @@ export function FormDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full">Register Now</Button>
+        <Button className="w-full" disabled={isContractPaused === true}>
+          {isContractPaused === true ? "Registration Unavailable" : "Register Now"}
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -128,6 +183,12 @@ export function FormDialog() {
             Choose your role and wait for admin approval.
           </DialogDescription>
         </DialogHeader>
+        {isContractPaused === true && (
+          <div className="rounded-md bg-yellow-100 border border-yellow-300 text-sm text-yellow-900 p-3">
+            The contract is currently paused by an administrator. Registration requests are temporarily disabled.
+            Please try again later.
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="account">Account Address</Label>
@@ -170,7 +231,7 @@ export function FormDialog() {
             <Button
               type="submit"
               className="flex-1"
-              disabled={isSubmitting || !role}
+              disabled={isSubmitting || !role || isContractPaused === true}
             >
               {isSubmitting ? "Registering..." : "Register"}
             </Button>

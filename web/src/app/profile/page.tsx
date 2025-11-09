@@ -287,6 +287,13 @@ export default function ProfilePage() {
                       </Button>
                       
                       <Button asChild variant="outline" className="h-auto py-4">
+                        <Link href="/admin/contract" className="flex flex-col items-start">
+                          <span className="font-semibold">Contract Control</span>
+                          <span className="text-sm text-muted-foreground">Pause and ownership tools</span>
+                        </Link>
+                      </Button>
+                      
+                      <Button asChild variant="outline" className="h-auto py-4">
                         <Link href="/admin/tests" className="flex flex-col items-start">
                           <span className="font-semibold">🧪 Automated Tests</span>
                           <span className="text-sm text-muted-foreground">Run system tests</span>
