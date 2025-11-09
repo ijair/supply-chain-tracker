@@ -44,21 +44,33 @@
 - **Root Cause**: Button implementation was incomplete or missing functionality
 - **Fix**: Removed the non-functional button as requested
 
+### Issue 7: getAllUsers() Retrieval Failure
+- **Problem**: Admin users page could not load the complete user list due to calling a restricted contract method
+- **Location**: `web/src/app/admin/users/page.tsx`
+- **Root Cause**: The frontend attempted to call `getAllUsers()`, which is restricted by the `onlyOwner` modifier and cannot be invoked from the client
+- **Fix**: Updated the data loader to use `getTotalUsers()` and iterate `userAddresses(i)` so the admin panel can enumerate users without violating contract permissions
+
+### Issue 8: Total User Count Inaccurate
+- **Problem**: The dashboard “Total Users” card displayed a lower number than the actual total
+- **Location**: `web/src/app/admin/users/page.tsx`
+- **Root Cause**: The component relied on `allUsers.length`, which excluded users with status `Canceled`
+- **Fix**: Switched the metric to use `users.length`, ensuring all stored users are counted regardless of status
+
 ## 3.2. Issues Found During Deployment and Configuration
 
-### Issue 7: Contract Address Mismatch in Deploy Script
+### Issue 9: Contract Address Mismatch in Deploy Script
 - **Problem**: Deploy script was extracting and writing the wrong contract address to frontend config
 - **Location**: `sc/scripts/deploy.sh`
 - **Root Cause**: `find broadcast -name "run-latest.json"` command was too broad and returned incorrect file
 - **Fix**: Updated deploy script to use more specific path: `find broadcast/Deploy.s.sol -name "run-latest.json"` and added fallback extraction methods
 
-### Issue 8: Admin Dashboard Access Issue
+### Issue 10: Admin Dashboard Access Issue
 - **Problem**: Admin user (`0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`) could not access admin dashboard, still seeing registration button
 - **Location**: `web/src/contexts/Web3Context.tsx`, `web/src/app/page.tsx`
 - **Root Cause**: User data refresh not properly detecting existing admin users registered during deployment
 - **Fix**: Fixed `refreshUserData()` function to properly fetch and recognize admin users, updated registration flow to check existing registration status before showing form
 
-### Issue 9: Users Don't Have ETH
+### Issue 11: Users Don't Have ETH
 - **Problem**: Registered users don't have ETH in their wallets for transactions
 - **Location**: General testing flow
 - **Root Cause**: Anvil test accounts need to be funded for testing transactions
@@ -66,31 +78,31 @@
 
 ## 3.3. Issues Found During Performance Optimization (Point 7)
 
-### Issue 10: Missing React useEffect Dependencies
+### Issue 12: Missing React useEffect Dependencies
 - **Problem**: Missing dependencies in useEffect hooks causing unnecessary re-renders and potential stale closures
 - **Location**: `web/src/app/admin/users/page.tsx`
 - **Root Cause**: `loadUsers` function missing from useEffect dependency array
 - **Fix**: Wrapped `loadUsers` in `useCallback` with proper dependencies `[provider]`, and added all dependencies to useEffect: `[isConnected, isApproved, user, loadUsers, router]`
 
-### Issue 11: Console.error Statements in Production
+### Issue 13: Console.error Statements in Production
 - **Problem**: All `console.error()` calls executed in production builds, polluting browser console
 - **Location**: `web/src/contexts/Web3Context.tsx` (6 instances), `web/src/app/admin/users/page.tsx` (3 instances)
 - **Root Cause**: No environment checks before logging errors
 - **Fix**: Wrapped all console.error calls with `process.env.NODE_ENV === 'development'` guard to prevent production logging
 
-### Issue 12: Duplicate Helper Functions
+### Issue 14: Duplicate Helper Functions
 - **Problem**: Helper functions (`getStatusColor()`, `getStatusText()`, `formatAddress()`) duplicated across multiple components (~150 lines of duplicate code)
 - **Location**: `web/src/app/page.tsx`, `web/src/app/admin/users/page.tsx`, `web/src/app/dashboard/page.tsx`
 - **Root Cause**: Functions copied to each component instead of being centralized
 - **Fix**: Created centralized utility functions in `web/src/lib/utils.ts` and removed duplicates from all components
 
-### Issue 13: Duplicate Error Handling Code
+### Issue 15: Duplicate Error Handling Code
 - **Problem**: Redundant error condition checks in `updateUserStatus()` function
 - **Location**: `web/src/app/admin/users/page.tsx`
 - **Root Cause**: Separate checks for `error.reason` and `error.message` with same logic
 - **Fix**: Consolidated into single check: `(error.reason && error.reason.includes("Status unchanged")) || (error.message && error.message.includes("Status unchanged"))`
 
-### Issue 14: Unused Variables
+### Issue 16: Unused Variables
 - **Problem**: Unused `connectWallet` variable imported but never used
 - **Location**: `web/src/app/dashboard/page.tsx`
 - **Root Cause**: Variable imported but not needed in component
@@ -98,7 +110,7 @@
 
 ## 3.4. Issues Found During Testing Implementation (Point 8)
 
-### Issue 15: Automated Test Flow Role Issue
+### Issue 17: Automated Test Flow Role Issue
 - **Problem**: Automated test flow tests failed because tests were running with admin role instead of producer role needed for token flow
 - **Location**: `web/src/app/admin/tests/page.tsx`
 - **Root Cause**: Test flow was using the actual connected user (admin) instead of simulating different roles for the complete supply chain flow
@@ -106,7 +118,7 @@
 
 ## 3.5. Smart Contract Performance Issues
 
-### Issue 16: getPendingTransfers() Returns All Transfers
+### Issue 18: getPendingTransfers() Returns All Transfers
 - **Problem**: `getPendingTransfers()` function returned all transfers for an address regardless of status (Pending, Accepted, Rejected), requiring frontend filtering
 - **Location**: `sc/src/SupplyChainTracker.sol`
 - **Root Cause**: Function returned entire array without filtering by status
@@ -114,12 +126,13 @@
 
 ## 3.6. Summary Statistics
 
-- **Total Issues Found**: 16
+- **Total Issues Found**: 18
 - **Critical Issues**: 3 (Admin access, Contract address mismatch, Missing pages)
 - **Performance Issues**: 5 (React hooks, console errors, duplicate code)
 - **Configuration Issues**: 3 (Chain ID, Contract address, ETH funding)
-- **Integration Issues**: 2 (Frontend-backend, Test flow)
+- **Integration Issues**: 3 (Frontend-backend, getAllUsers retrieval, Test flow)
 - **Code Quality Issues**: 3 (Unused variables, Duplicate code, Error handling)
+- **UI/Data Issues**: 1 (Dashboard total user count)
 
 All issues have been resolved and documented in the respective AI chat sessions.
 

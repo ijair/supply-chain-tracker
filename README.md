@@ -10,7 +10,7 @@ supply-chain-tracker/
 │   ├── src/
 │   │   └── SupplyChainTracker.sol  # Main smart contract with user roles
 │   ├── test/
-│   │   └── SupplyChainTracker.t.sol # Comprehensive test suite (24 tests)
+│   │   └── SupplyChainTracker.t.sol # Comprehensive test suite (61 tests)
 │   ├── script/
 │   │   ├── Deploy.s.sol            # Deployment script
 │   │   └── *.sh                    # Deployment scripts
@@ -60,7 +60,7 @@ supply-chain-tracker/
 - Access control based on user approval status
 
 ✅ **Comprehensive Testing**
-- 24 automated tests with 100% pass rate
+- 61 automated tests with 100% pass rate
 - Tests for all user roles and supply operations
 - Error handling and edge case coverage
 
@@ -221,6 +221,7 @@ Each account has 10000 ETH and can be imported into MetaMask using the private k
 - `getUserStatus(address _userAddress)`: Check user approval status
 - `isUserApproved(address _userAddress)`: Boolean approval check
 - `getAllUsers()`: Admin-only list of all registered users
+- `getTotalUsers()`: Total count of registered users
 
 ### Supply Functions (Approved users only)
 - `registerSupply(string memory _name, string memory _location)`: Register new supply
@@ -298,7 +299,7 @@ FORK_URL=<url> FORK_BLOCK_NUMBER=<block> ./scripts/deploy.sh
 
 ### Code Quality
 - All code and comments are in English
-- Comprehensive Solidity test coverage (24 tests)
+- Comprehensive Solidity test coverage (61 tests)
 - TypeScript strict mode enabled
 - ESLint for code quality
 - Tailwind CSS for styling
@@ -352,7 +353,7 @@ A comprehensive security audit has been performed on both the smart contract and
 ## Roadmap
 
 - [ ] Role-based dashboards with color themes
-- [ ] Admin user management interface
+- [x] Admin user management interface
 - [ ] Supply tracking with timeline visualization
 - [ ] Transfer tracking between roles
 - [ ] Token statistics per role
